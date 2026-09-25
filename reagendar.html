@@ -97,6 +97,10 @@ body {
   color: var(--text-3);
   margin-top: 5px;
 }
+.seg{display:flex;gap:8px}
+.seg button{flex:1;padding:12px 10px;border:1.5px solid var(--border,#e2e8f0);border-radius:8px;background:#fff;font-family:inherit;font-size:.92rem;font-weight:600;color:#4A5568;cursor:pointer}
+.seg button.ativo{border-color:#1B3A6B;background:#1B3A6B;color:#fff}
+.seg.invalid{outline:2px solid #E03131;outline-offset:3px;border-radius:8px}
 input[type="date"], input[type="text"], select {
   width: 100%;
   font-family: var(--font-body);
@@ -128,6 +132,13 @@ select:disabled, input:disabled { opacity: .5; }
 }
 .status-msg.error   { color: var(--danger); }
 .status-msg.success { color: var(--green); }
+.status-msg.warn    { color: #E07B00; }
+.modal-overlay-rg{position:fixed;inset:0;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;padding:20px;z-index:999;opacity:0;pointer-events:none;transition:opacity .18s}
+.modal-overlay-rg.open{opacity:1;pointer-events:auto}
+.modal-box-rg{background:#fff;border-radius:14px;max-width:400px;width:100%;padding:22px;box-shadow:0 8px 32px rgba(0,0,0,.18)}
+.modal-box-rg h3{font-size:1.05rem;color:var(--navy,#1B3A6B);margin-bottom:10px}
+.modal-box-rg p{font-size:.88rem;color:#4A5568;line-height:1.55;margin-bottom:16px}
+.modal-box-rg button{width:100%;padding:11px;border:none;border-radius:8px;background:var(--navy,#1B3A6B);color:#fff;font-weight:600;font-size:.9rem;cursor:pointer}
 .btn {
   width: 100%;
   border: none;
@@ -174,6 +185,14 @@ select:disabled, input:disabled { opacity: .5; }
   <p>Rastreando GPS</p>
 </div>
 
+<div class="modal-overlay-rg" id="modalDomingo">
+  <div class="modal-box-rg">
+    <h3>Atendimento aos domingos</h3>
+    <p>Aos domingos o atendimento é <b>excepcional</b>. Vamos confirmar com você se temos disponibilidade nesse dia antes de fechar o horário.</p>
+    <button type="button" id="modalDomingoFechar">Entendi</button>
+  </div>
+</div>
+
 <div class="wrap">
   <div class="card" id="cardCarregando">
     <div class="spinner"></div>
@@ -208,6 +227,12 @@ select:disabled, input:disabled { opacity: .5; }
   }
 
   var wrap = document.querySelector('.wrap');
+  var modalDomingo = document.getElementById('modalDomingo');
+  var modalDomingoFechar = document.getElementById('modalDomingoFechar');
+  function abrirModalDomingo(){ if (modalDomingo) modalDomingo.classList.add('open'); }
+  function fecharModalDomingo(){ if (modalDomingo) modalDomingo.classList.remove('open'); }
+  if (modalDomingoFechar) modalDomingoFechar.addEventListener('click', fecharModalDomingo);
+  if (modalDomingo) modalDomingo.addEventListener('click', function(ev){ if (ev.target === modalDomingo) fecharModalDomingo(); });
 
   function getOsId() {
     var params = new URLSearchParams(window.location.search);
@@ -231,51 +256,49 @@ select:disabled, input:disabled { opacity: .5; }
     wrap.innerHTML = html;
   }
 
-  // ── Utilitários de data/horário (mesma lógica do formulário de agendamento) ──
-  var HORARIO_MIN = '08:00', HORARIO_MAX = '18:00', BUFFER_MINUTOS = 100, SLOT_MINUTOS = 30;
-
-  function horaParaMinutos(hhmm){
-    var p = String(hhmm || '').split(':');
-    if (p.length !== 2) return null;
-    var h = parseInt(p[0], 10), m = parseInt(p[1], 10);
-    if (isNaN(h) || isNaN(m)) return null;
-    return h * 60 + m;
+  // ── Utilitários de data (mesma lógica do formulário de agendamento) ──
+  function diaSemana(iso){
+    var p = String(iso||'').split('-');
+    if (p.length !== 3) return null;
+    var d = new Date(parseInt(p[0],10), parseInt(p[1],10)-1, parseInt(p[2],10));
+    return d.getDay();
   }
-  function minutosParaHora(min){
-    min = Math.max(0, Math.min(23*60+59, min));
-    var h = Math.floor(min/60), m = min % 60;
-    return String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0');
+  function addDiasISO(iso, n){
+    var p = String(iso).split('-').map(Number);
+    var d = new Date(Date.UTC(p[0], p[1]-1, p[2]));
+    d.setUTCDate(d.getUTCDate() + n);
+    return d.toISOString().slice(0,10);
   }
-  function ehDomingo(dataISO){
-    var p = String(dataISO || '').split('-');
-    if (p.length !== 3) return false;
-    var d = new Date(parseInt(p[0],10), parseInt(p[1],10) - 1, parseInt(p[2],10));
-    return d.getDay() === 0;
+  var FERIADOS_FIXOS = ['01-01','01-20','04-21','04-23','05-01','09-07','10-12','11-02','11-15','11-20','12-25'];
+  function pascoaISO(y){
+    var a=y%19,b=Math.floor(y/100),c=y%100,d=Math.floor(b/4),e=b%4;
+    var f=Math.floor((b+8)/25),g=Math.floor((b-f+1)/3),h=(19*a+b-d-g+15)%30;
+    var i=Math.floor(c/4),k=c%4,l=(32+2*e+2*i-h-k)%7,m=Math.floor((a+11*h+22*l)/451);
+    var mes=Math.floor((h+l-7*m+114)/31), dia=((h+l-7*m+114)%31)+1;
+    return y+'-'+String(mes).padStart(2,'0')+'-'+String(dia).padStart(2,'0');
   }
-  var HORA_SLOTS = (function(){
-    var lista = [];
-    var min = horaParaMinutos(HORARIO_MIN), max = horaParaMinutos(HORARIO_MAX);
-    for (var m = min; m <= max; m += SLOT_MINUTOS) lista.push(m);
+  function feriadosDoAno(y){
+    var p = pascoaISO(y);
+    var lista = FERIADOS_FIXOS.map(function(x){ return y+'-'+x; });
+    lista.push(addDiasISO(p,-48), addDiasISO(p,-47), addDiasISO(p,-2), addDiasISO(p,60));
     return lista;
-  })();
+  }
+  function ehFeriado(iso){
+    var y = parseInt(String(iso).slice(0,4),10);
+    return feriadosDoAno(y).indexOf(iso) >= 0;
+  }
+  function labelTarde(iso){
+    return diaSemana(iso) === 6 ? 'Tarde (13h–14h)' : 'Tarde (13h–18h)';
+  }
+  function periodoTexto(p, iso){
+    if (p === 'manha') return 'Manhã (8h–12h)';
+    if (p === 'tarde') return labelTarde(iso);
+    return '';
+  }
   function isoParaDataBR(dataISO){
     var p = String(dataISO || '').split('-');
     if (p.length !== 3) return dataISO;
     return p[2] + '/' + p[1] + '/' + p[0];
-  }
-  function slotsOcupadosMinutos(dataISO){
-    if (!dbFirestore) return Promise.resolve([]);
-    var dataBR = isoParaDataBR(dataISO);
-    return dbFirestore.collection('horarios_ocupados').where('data', '==', dataBR).get()
-      .then(function(snap){
-        var ocupados = [];
-        snap.forEach(function(doc){
-          var h = horaParaMinutos((doc.data() || {}).hora);
-          if (h !== null) ocupados.push(h);
-        });
-        return ocupados;
-      })
-      .catch(function(){ return []; });
   }
   function verificarDiaBloqueado(dataISO){
     if (!dbFirestore) return Promise.resolve(false);
@@ -412,8 +435,11 @@ select:disabled, input:disabled { opacity: .5; }
           '<input type="date" id="novaData">' +
         '</div>' +
         '<div class="field">' +
-          '<label for="novaHora">Novo horário</label>' +
-          '<select id="novaHora" disabled><option value="">Selecione a data primeiro</option></select>' +
+          '<label>Novo período</label>' +
+          '<div class="seg" id="seg-periodo">' +
+            '<button type="button" data-p="manha">Manhã (8h–12h)</button>' +
+            '<button type="button" data-p="tarde">Tarde (13h–18h)</button>' +
+          '</div>' +
         '</div>' +
         '<div class="status-msg" id="statusMsg"></div>' +
         '<button class="btn" id="btnConfirmar" disabled>Confirmar novo horário</button>' +
@@ -423,9 +449,10 @@ select:disabled, input:disabled { opacity: .5; }
     var enderecoInput = document.getElementById('novoEndereco');
 
     var dataInput = document.getElementById('novaData');
-    var horaInput = document.getElementById('novaHora');
+    var segPeriodo = document.getElementById('seg-periodo');
     var statusMsg = document.getElementById('statusMsg');
     var btnConfirmar = document.getElementById('btnConfirmar');
+    var periodoEscolhido = '';
 
     var hoje = new Date();
     var isoHoje = hoje.getFullYear() + '-' + String(hoje.getMonth()+1).padStart(2,'0') + '-' + String(hoje.getDate()).padStart(2,'0');
@@ -436,62 +463,60 @@ select:disabled, input:disabled { opacity: .5; }
       statusMsg.className = 'status-msg' + (tipo ? ' ' + tipo : '');
     }
 
-    function limparHoras(msg) {
-      horaInput.innerHTML = '<option value="">' + (msg || 'Selecione a data primeiro') + '</option>';
-      horaInput.disabled = true;
+    function limparPeriodo() {
+      periodoEscolhido = '';
+      segPeriodo.classList.remove('invalid');
+      Array.prototype.forEach.call(segPeriodo.querySelectorAll('button'), function(b){ b.classList.remove('ativo'); });
       btnConfirmar.disabled = true;
     }
 
-    dataInput.addEventListener('change', function(){
-      var dataISO = dataInput.value;
-      setStatus('');
-      if (!dataISO) { limparHoras(); return; }
-
-      if (ehDomingo(dataISO)) {
-        limparHoras('Não atendemos aos domingos');
-        setStatus('Escolha outro dia — não atendemos aos domingos.', 'error');
-        return;
-      }
-
-      limparHoras('Carregando horários...');
-      Promise.all([verificarDiaBloqueado(dataISO), slotsOcupadosMinutos(dataISO)]).then(function(res){
-        var bloqueado = res[0], ocupados = res[1];
-        if (bloqueado) {
-          limparHoras('Data indisponível');
-          setStatus('Não estamos atendendo nessa data. Escolha outro dia.', 'error');
-          return;
-        }
-        var opcoes = '<option value="">Selecione um horário</option>';
-        var algumLivre = false;
-        HORA_SLOTS.forEach(function(m){
-          var ocupado = ocupados.some(function(o){ return Math.abs(m - o) < BUFFER_MINUTOS; });
-          if (ocupado) return;
-          algumLivre = true;
-          var h = minutosParaHora(m);
-          opcoes += '<option value="' + h + '">' + h + '</option>';
-        });
-        horaInput.innerHTML = opcoes;
-        horaInput.disabled = !algumLivre;
-        if (!algumLivre) setStatus('Não há horários livres nesse dia. Escolha outra data.', 'error');
+    Array.prototype.forEach.call(segPeriodo.querySelectorAll('button'), function(b){
+      b.addEventListener('click', function(){
+        periodoEscolhido = b.getAttribute('data-p');
+        segPeriodo.classList.remove('invalid');
+        Array.prototype.forEach.call(segPeriodo.querySelectorAll('button'), function(x){ x.classList.toggle('ativo', x === b); });
+        btnConfirmar.disabled = false;
+        setStatus('');
       });
     });
 
-    horaInput.addEventListener('change', function(){
-      btnConfirmar.disabled = !horaInput.value;
+    var _ultimaDataAvisada = '';
+    dataInput.addEventListener('change', function(){
+      var dataISO = dataInput.value;
       setStatus('');
+      limparPeriodo();
+      if (!dataISO) return;
+
+      if (ehFeriado(dataISO)) {
+        setStatus('Não atendemos em feriados — escolha outro dia.', 'error');
+        return;
+      }
+
+      var btnTarde = segPeriodo.querySelector('[data-p="tarde"]');
+      btnTarde.textContent = labelTarde(dataISO);
+
+      if (diaSemana(dataISO) === 0) {
+        setStatus('Domingo é atendimento excepcional — vamos confirmar a disponibilidade com você.', 'warn');
+        if (dataISO !== _ultimaDataAvisada) { _ultimaDataAvisada = dataISO; abrirModalDomingo(); }
+      }
+
+      verificarDiaBloqueado(dataISO).then(function(bloqueado){
+        if (bloqueado) setStatus('Não estamos atendendo nessa data. Escolha outro dia.', 'error');
+      });
     });
 
     btnConfirmar.addEventListener('click', function(){
-      var dataISO = dataInput.value, hora = horaInput.value;
+      var dataISO = dataInput.value;
+      var hora = periodoTexto(periodoEscolhido, dataISO);
       var novoEndereco = (enderecoInput.value || '').trim();
-      if (!dataISO || !hora) return;
+      if (!dataISO || !periodoEscolhido) return;
       btnConfirmar.disabled = true;
       btnConfirmar.textContent = 'Confirmando...';
       setStatus('');
 
       function mostrarSucesso(res) {
         renderMensagem('✅', 'Agendamento remarcado!',
-          'Seu novo horário é <b>' + res.novaData + '</b> às <b>' + res.novaHora + '</b>' +
+          'Seu novo horário é <b>' + res.novaData + '</b> — <b>' + res.novaHora + '</b>' +
           (res.novoEndereco ? ', em <b>' + escapeHtml(res.novoEndereco) + '</b>' : '') +
           '. Te esperamos!');
       }
