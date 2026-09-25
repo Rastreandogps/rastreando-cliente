@@ -237,6 +237,10 @@ select:focus {
 }
 input:focus-visible,
 select:focus-visible { outline: 2px solid var(--navy); outline-offset: 2px; }
+.seg{display:flex;gap:8px}
+.seg button{flex:1;padding:12px 10px;border:1.5px solid var(--border);border-radius:var(--radius-sm);background:#fff;font-family:var(--font-body);font-size:.9rem;font-weight:600;color:var(--text-2);cursor:pointer}
+.seg button.ativo{border-color:var(--navy);background:var(--navy);color:#fff}
+.seg.invalid{outline:2px solid var(--danger);outline-offset:3px;border-radius:var(--radius-sm)}
 input.invalid,
 select.invalid {
   border-color: var(--danger);
@@ -266,6 +270,7 @@ select.invalid {
 }
 .cep-hint.success { color: var(--green); }
 .cep-hint.error   { color: var(--danger); }
+.cep-hint.warn    { color: var(--amber); }
 
 /* ── STEPPER ── */
 .stepper-card {
@@ -828,19 +833,18 @@ select.invalid {
         <span class="card-header-label">Data e horário desejados</span>
       </div>
       <div class="card-body">
-        <div class="grid-2">
-          <div class="field">
-            <label for="dataAgendamento">Data <span class="req">*</span></label>
-            <input type="date" id="dataAgendamento" autocomplete="off">
-          </div>
-          <div class="field">
-            <label for="horaAgendamento">Horário <span class="req">*</span></label>
-            <select id="horaAgendamento" disabled>
-              <option value="" disabled selected>Selecione um horário</option>
-            </select>
+        <div class="field">
+          <label for="dataAgendamento">Data <span class="req">*</span></label>
+          <input type="date" id="dataAgendamento" autocomplete="off">
+        </div>
+        <div class="field" style="margin-top:14px">
+          <label>Período <span class="req">*</span></label>
+          <div class="seg" id="seg-periodo">
+            <button type="button" data-p="manha">Manhã (8h–12h)</button>
+            <button type="button" data-p="tarde">Tarde (13h–18h)</button>
           </div>
         </div>
-        <p class="cep-hint" id="horarioStatus">Escolha o dia e o horário que preferir (entre 8h e 18h, exceto domingos). Vamos confirmar a disponibilidade na hora.</p>
+        <p class="cep-hint" id="horarioStatus">Atendemos todos os dias da semana, inclusive domingo, exceto feriados. Aos sábados, a tarde vai até 14h.</p>
       </div>
     </div>
 
@@ -917,13 +921,12 @@ select.invalid {
   </div>
 </div>
 
-<!-- MODAL: horário indisponível -->
-<div class="modal-overlay-ag" id="modalHorarioOcupado">
+<!-- MODAL: atendimento aos domingos é excepcional -->
+<div class="modal-overlay-ag" id="modalDomingo">
   <div class="modal-box-ag">
-    <h3 id="modalHorarioTitulo">Esse horário não está disponível</h3>
-    <p id="modalHorarioMsg">Já temos um atendimento marcado perto desse horário. Você pode escolher:</p>
-    <div class="modal-ag-opcoes" id="modalHorarioOpcoes"></div>
-    <button type="button" class="modal-ag-fechar" id="modalHorarioFechar">Escolher outro horário</button>
+    <h3>Atendimento aos domingos</h3>
+    <p>Aos domingos o atendimento é <b>excepcional</b>. Vamos confirmar com você se temos disponibilidade nesse dia antes de fechar o horário.</p>
+    <button type="button" class="modal-ag-fechar" id="modalDomingoFechar">Entendi</button>
   </div>
 </div>
 
@@ -1005,309 +1008,101 @@ select.invalid {
   var stageSuccess    = document.getElementById('stageSuccess');
 
   // ── DATA E HORÁRIO: escolha do cliente + checagem de conflito ──
-  var dataInput          = document.getElementById('dataAgendamento');
-  var horaInput           = document.getElementById('horaAgendamento');
-  var horarioStatusEl     = document.getElementById('horarioStatus');
-  var modalHorario        = document.getElementById('modalHorarioOcupado');
-  var modalHorarioTitulo  = document.getElementById('modalHorarioTitulo');
-  var modalHorarioMsg     = document.getElementById('modalHorarioMsg');
-  var modalHorarioOpcoes  = document.getElementById('modalHorarioOpcoes');
-  var modalHorarioFechar  = document.getElementById('modalHorarioFechar');
+  var dataInput  = document.getElementById('dataAgendamento');
+  var segPeriodo = document.getElementById('seg-periodo');
+  var horarioStatusEl = document.getElementById('horarioStatus');
+  var HINT_PADRAO = 'Atendemos de segunda a sábado (aos sábados, a tarde vai até 14h), exceto feriados. Domingo é excepcional.';
+  var HINT_DOMINGO = 'Domingo é atendimento excepcional — vamos confirmar a disponibilidade com você.';
+  var modalDomingo = document.getElementById('modalDomingo');
+  var modalDomingoFechar = document.getElementById('modalDomingoFechar');
+  var _ultimaDataAvisada = '';
+  function abrirModalDomingo(){ if (modalDomingo) modalDomingo.classList.add('open'); }
+  function fecharModalDomingo(){ if (modalDomingo) modalDomingo.classList.remove('open'); }
+  if (modalDomingoFechar) modalDomingoFechar.addEventListener('click', fecharModalDomingo);
+  if (modalDomingo) modalDomingo.addEventListener('click', function(ev){ if (ev.target === modalDomingo) fecharModalDomingo(); });
 
-  var HORARIO_MIN    = '08:00';
-  var HORARIO_MAX    = '18:00';
-  var BUFFER_MINUTOS = 100; // 60min de instalação + 40min de deslocamento
-
-  // Data mínima selecionável: hoje.
+  // Data mínima selecionável: hoje (pode marcar até pra hoje mesmo).
   (function(){
     var hoje = new Date();
     var iso = hoje.getFullYear() + '-' + String(hoje.getMonth()+1).padStart(2,'0') + '-' + String(hoje.getDate()).padStart(2,'0');
     if (dataInput) dataInput.setAttribute('min', iso);
   })();
 
-  function horaParaMinutos(hhmm){
-    var p = String(hhmm || '').split(':');
-    if (p.length !== 2) return null;
-    var h = parseInt(p[0], 10), m = parseInt(p[1], 10);
-    if (isNaN(h) || isNaN(m)) return null;
-    return h * 60 + m;
+  function diaSemana(iso){
+    var p = String(iso||'').split('-');
+    if (p.length !== 3) return null;
+    var d = new Date(parseInt(p[0],10), parseInt(p[1],10)-1, parseInt(p[2],10));
+    return d.getDay();
   }
-  function minutosParaHora(min){
-    min = Math.max(0, Math.min(23*60+59, min));
-    var h = Math.floor(min/60), m = min % 60;
-    return String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0');
+  function addDiasISO(iso, n){
+    var p = String(iso).split('-').map(Number);
+    var d = new Date(Date.UTC(p[0], p[1]-1, p[2]));
+    d.setUTCDate(d.getUTCDate() + n);
+    return d.toISOString().slice(0,10);
   }
-
-  // Não atendemos aos domingos. Monta a data em horário local (evita o
-  // bug de fuso-horário de "new Date('AAAA-MM-DD')", que pode voltar
-  // um dia quando o Brasil está atrás do UTC).
-  function ehDomingo(dataISO){
-    var p = String(dataISO || '').split('-');
-    if (p.length !== 3) return false;
-    var d = new Date(parseInt(p[0],10), parseInt(p[1],10) - 1, parseInt(p[2],10));
-    return d.getDay() === 0;
+  // Feriados nacionais + RJ (fixos) e móveis (Carnaval, Sexta-feira Santa, Corpus Christi).
+  var FERIADOS_FIXOS = ['01-01','01-20','04-21','04-23','05-01','09-07','10-12','11-02','11-15','11-20','12-25'];
+  function pascoaISO(y){
+    var a=y%19,b=Math.floor(y/100),c=y%100,d=Math.floor(b/4),e=b%4;
+    var f=Math.floor((b+8)/25),g=Math.floor((b-f+1)/3),h=(19*a+b-d-g+15)%30;
+    var i=Math.floor(c/4),k=c%4,l=(32+2*e+2*i-h-k)%7,m=Math.floor((a+11*h+22*l)/451);
+    var mes=Math.floor((h+l-7*m+114)/31), dia=((h+l-7*m+114)%31)+1;
+    return y+'-'+String(mes).padStart(2,'0')+'-'+String(dia).padStart(2,'0');
   }
-
-  // Lista fixa de horários do seletor (de 30 em 30 min, dentro do
-  // expediente). É a mesma lista usada pra sugerir horário livre —
-  // assim nunca sugerimos um horário que nem aparece no seletor.
-  var SLOT_MINUTOS = 30;
-  var HORA_SLOTS = (function(){
-    var lista = [];
-    var min = horaParaMinutos(HORARIO_MIN), max = horaParaMinutos(HORARIO_MAX);
-    for (var m = min; m <= max; m += SLOT_MINUTOS) lista.push(m);
+  function feriadosDoAno(y){
+    var p = pascoaISO(y);
+    var lista = FERIADOS_FIXOS.map(function(x){ return y+'-'+x; });
+    lista.push(addDiasISO(p,-48), addDiasISO(p,-47), addDiasISO(p,-2), addDiasISO(p,60));
     return lista;
-  })();
-
-  // Deixa o seletor só com "Selecione um horário" (antes de escolher a
-  // data, ou quando a data é domingo — aí não tem horário nenhum pra
-  // oferecer).
-  function limparOpcoesHorario(){
-    if (!horaInput) return;
-    horaInput.innerHTML = '';
-    var placeholder = document.createElement('option');
-    placeholder.value = '';
-    placeholder.disabled = true;
-    placeholder.selected = true;
-    placeholder.textContent = 'Selecione um horário';
-    horaInput.appendChild(placeholder);
   }
-  limparOpcoesHorario();
-
-  // Preenche o seletor só com os horários que sobraram livres — os que
-  // já estão ocupados naquele dia nem aparecem mais na lista. Devolve
-  // false quando não sobrou nenhum horário livre.
-  function preencherOpcoesHorario(ocupadosMin){
-    if (!horaInput) return false;
-    var valorAnterior = horaInput.value;
-    limparOpcoesHorario();
-    var algumLivre = false;
-    HORA_SLOTS.forEach(function(m){
-      var ocupado = ocupadosMin.some(function(o){ return Math.abs(m - o) < BUFFER_MINUTOS; });
-      if (ocupado) return;
-      algumLivre = true;
-      var opt = document.createElement('option');
-      opt.value = minutosParaHora(m);
-      opt.textContent = minutosParaHora(m);
-      horaInput.appendChild(opt);
-    });
-    var aindaLivre = Array.prototype.some.call(horaInput.options, function(o){ return o.value === valorAnterior; });
-    if (valorAnterior && aindaLivre) horaInput.value = valorAnterior;
-    return algumLivre;
+  function ehFeriado(iso){
+    var y = parseInt(String(iso).slice(0,4),10);
+    return feriadosDoAno(y).indexOf(iso) >= 0;
   }
 
-  // Procura o horário livre mais próximo do alvo, na lista fixa de
-  // horários do seletor, andando na direção pedida (+1 = mais tarde,
-  // -1 = mais cedo) até achar um que não bata com nenhum ocupado.
-  function proximoHorarioLivre(alvoMin, ocupadosMin, direcao){
-    var candidatos = direcao > 0
-      ? HORA_SLOTS.filter(function(s){ return s >= alvoMin; })
-      : HORA_SLOTS.filter(function(s){ return s <= alvoMin; }).slice().reverse();
-    for (var i = 0; i < candidatos.length; i++){
-      var slot = candidatos[i];
-      var livre = ocupadosMin.every(function(o){ return Math.abs(slot - o) >= BUFFER_MINUTOS; });
-      if (livre) return slot;
-    }
-    return null;
+  // Instalação: qualquer dia da semana (inclusive domingo), exceto feriado.
+  // Sábado tem a tarde reduzida (até 14h); nos outros dias, tarde normal (até 18h).
+  function erroData(iso){
+    var hojeIso = dataInput.getAttribute('min');
+    if(!iso) return 'Escolha a data.';
+    if(iso < hojeIso) return 'A data mais próxima disponível é hoje.';
+    if(ehFeriado(iso)) return 'Não atendemos em feriados. Escolha outro dia.';
+    return '';
+  }
+  function labelTarde(iso){
+    return diaSemana(iso) === 6 ? 'Tarde (13h–14h)' : 'Tarde (13h–18h)';
+  }
+  function periodoTexto(p, iso){
+    if (p === 'manha') return 'Manhã (8h–12h)';
+    if (p === 'tarde') return labelTarde(iso);
+    return '';
   }
 
-  // O app do técnico guarda a data da ordem como "DD/MM/AAAA" (não
-  // "AAAA-MM-DD" como o campo de data deste formulário) — então, antes
-  // de perguntar ao Firestore, convertemos pro mesmo formato que está
-  // gravado lá. Sem isso, a busca nunca encontra nada e todo horário
-  // aparece como livre, mesmo já tendo ordem marcada.
-  function isoParaDataBR(dataISO){
-    var p = String(dataISO || '').split('-');
-    if (p.length !== 3) return dataISO;
-    return p[2] + '/' + p[1] + '/' + p[0];
-  }
-
-  // Busca no Firestore (coleção "horarios_ocupados" — só data e hora,
-  // sem nenhum dado de cliente) quais horários já estão ocupados numa
-  // data. Se não conseguir consultar, assume que não tem ocupado
-  // nenhum (não trava o cliente por causa de um problema técnico).
-  function slotsOcupadosMinutos(dataISO){
-    if (!dbFirestore) return Promise.resolve([]);
-    var dataBR = isoParaDataBR(dataISO);
-    return dbFirestore.collection('horarios_ocupados').where('data', '==', dataBR).get()
-      .then(function(snap){
-        var ocupados = [];
-        snap.forEach(function(doc){
-          var h = horaParaMinutos((doc.data() || {}).hora);
-          if (h !== null) ocupados.push(h);
-        });
-        return ocupados;
-      })
-      .catch(function(e){
-        console.warn('[Rastreando GPS] Não deu pra carregar horários ocupados (seguindo sem travar o cliente).', e);
-        return [];
-      });
-  }
-
-  // O admin tem um botão pra bloquear agendamentos "de hoje" quando,
-  // por algum motivo, não vai dar pra atender ninguém no dia. Confere
-  // se a data escolhida é justamente o dia que está bloqueado.
-  function verificarDiaBloqueado(dataISO){
-    if (!dbFirestore) return Promise.resolve(false);
-    return dbFirestore.collection('configuracoes').doc('bloqueioAgendamento').get()
-      .then(function(snap){
-        if (!snap.exists) return false;
-        var d = snap.data() || {};
-        return !!d.ativo && d.data === isoParaDataBR(dataISO);
-      })
-      .catch(function(e){
-        console.warn('[Rastreando GPS] Não deu pra checar bloqueio do dia (seguindo sem travar o cliente).', e);
-        return false;
-      });
-  }
-
-  // Conferência final de um horário específico (usada quando o
-  // cliente escolhe o horário no seletor) — pega o caso raro de dois
-  // clientes preenchendo o formulário ao mesmo tempo.
-  function checarDisponibilidade(dataISO, horaStr){
-    var alvo = horaParaMinutos(horaStr);
-    if (alvo === null) return Promise.resolve({ livre: true });
-    return slotsOcupadosMinutos(dataISO).then(function(ocupados){
-      var temConflito = ocupados.some(function(h){ return Math.abs(h - alvo) < BUFFER_MINUTOS; });
-      if (!temConflito) return { livre: true };
-
-      var depois = proximoHorarioLivre(alvo, ocupados, +1);
-      var antes  = proximoHorarioLivre(alvo, ocupados, -1);
-      return {
-        livre: false,
-        sugestaoDepois: depois !== null ? minutosParaHora(depois) : null,
-        sugestaoAntes:  antes  !== null ? minutosParaHora(antes)  : null
-      };
+  var periodoEscolhido = '';
+  function setPeriodo(p){
+    periodoEscolhido = p;
+    segPeriodo.classList.remove('invalid');
+    Array.prototype.forEach.call(segPeriodo.querySelectorAll('button'), function(b){
+      b.classList.toggle('ativo', b.getAttribute('data-p') === p);
     });
   }
-
-  function setHorarioStatus(msg, tipo){
-    if (!horarioStatusEl) return;
-    horarioStatusEl.textContent = msg;
-    horarioStatusEl.classList.remove('success', 'error');
-    if (tipo) horarioStatusEl.classList.add(tipo);
-  }
-
-  // Modal simples de aviso, sem opções de horário pra clicar (usado
-  // para o caso de domingo, por exemplo — só um "entendi" e pronto).
-  function abrirModalAviso(titulo, mensagem, textoBotao){
-    if (modalHorarioTitulo) modalHorarioTitulo.textContent = titulo;
-    modalHorarioMsg.textContent = mensagem;
-    modalHorarioOpcoes.innerHTML = '';
-    modalHorarioFechar.textContent = textoBotao || 'Entendi';
-    modalHorario.classList.add('open');
-  }
-
-  function abrirModalHorario(resultado){
-    if (modalHorarioTitulo) modalHorarioTitulo.textContent = 'Esse horário não está disponível';
-    modalHorarioFechar.textContent = 'Escolher outro horário';
-    var opcoesHtml = '';
-    if (resultado.sugestaoDepois){
-      opcoesHtml += '<button type="button" class="modal-ag-btn" data-hora="' + resultado.sugestaoDepois + '">A partir das ' + resultado.sugestaoDepois + '</button>';
-    }
-    if (resultado.sugestaoAntes){
-      opcoesHtml += '<button type="button" class="modal-ag-btn" data-hora="' + resultado.sugestaoAntes + '">Antes das ' + resultado.sugestaoAntes + '</button>';
-    }
-    if (!opcoesHtml){
-      modalHorarioMsg.textContent = 'Infelizmente não sobrou horário livre nesse dia. Tente escolher outra data, ou fale com a gente pelo WhatsApp.';
-    } else {
-      modalHorarioMsg.textContent = 'Já temos um atendimento marcado perto desse horário. Você pode escolher:';
-    }
-    modalHorarioOpcoes.innerHTML = opcoesHtml;
-    modalHorario.classList.add('open');
-  }
-  function fecharModalHorario(){ modalHorario.classList.remove('open'); }
-  if (modalHorarioFechar) modalHorarioFechar.addEventListener('click', fecharModalHorario);
-  if (modalHorarioOpcoes) modalHorarioOpcoes.addEventListener('click', function(e){
-    var btn = e.target.closest('[data-hora]');
-    if (!btn) return;
-    horaInput.value = btn.getAttribute('data-hora');
-    fecharModalHorario();
-    validarHorarioEscolhido();
+  Array.prototype.forEach.call(segPeriodo.querySelectorAll('button'), function(b){
+    b.addEventListener('click', function(){ setPeriodo(b.getAttribute('data-p')); });
   });
 
-  var _horarioOk = false;
-  function validarHorarioEscolhido(){
-    _horarioOk = false;
-    var d = dataInput.value, h = horaInput.value;
-    if (!d || !h){
-      setHorarioStatus('Escolha o dia e o horário que preferir (entre 8h e 18h, exceto domingos). Vamos confirmar a disponibilidade na hora.', null);
-      return Promise.resolve(false);
+  function atualizarStatusData(){
+    var iso = dataInput.value;
+    var btnTarde = segPeriodo.querySelector('[data-p="tarde"]');
+    btnTarde.textContent = iso ? labelTarde(iso) : 'Tarde (13h–18h)';
+    var erro = erroData(iso);
+    var ehDom = iso && !erro && diaSemana(iso) === 0;
+    if (horarioStatusEl){
+      horarioStatusEl.textContent = erro || (ehDom ? HINT_DOMINGO : HINT_PADRAO);
+      horarioStatusEl.className = erro ? 'cep-hint error' : (ehDom ? 'cep-hint warn' : 'cep-hint');
     }
-    if (ehDomingo(d)){
-      setHorarioStatus('Não atendemos aos domingos — escolha outro dia.', 'error');
-      abrirModalAviso('Não atendemos aos domingos', 'Escolha outro dia da semana para agendarmos sua visita.', 'Entendi');
-      return Promise.resolve(false);
-    }
-    var hMin = horaParaMinutos(h);
-    var limiteMin = horaParaMinutos(HORARIO_MIN), limiteMax = horaParaMinutos(HORARIO_MAX);
-    if (hMin === null || hMin < limiteMin || hMin > limiteMax){
-      setHorarioStatus('Escolha um horário entre ' + HORARIO_MIN + ' e ' + HORARIO_MAX + '.', 'error');
-      return Promise.resolve(false);
-    }
-    setHorarioStatus('Verificando disponibilidade...', null);
-    return verificarDiaBloqueado(d).then(function(bloqueado){
-      if (bloqueado){
-        setHorarioStatus('Não estamos atendendo agendamentos para hoje.', 'error');
-        abrirModalAviso('Sem atendimento hoje', 'Hoje não estamos atendendo novos agendamentos. Escolha outro dia, ou fale com a gente pelo WhatsApp.', 'Entendi');
-        return false;
-      }
-      return checarDisponibilidade(d, h).then(function(res){
-        if (res.livre){
-          _horarioOk = true;
-          setHorarioStatus('✓ Horário disponível', 'success');
-          return true;
-        } else {
-          setHorarioStatus('Esse horário não está disponível — escolha outro.', 'error');
-          abrirModalHorario(res);
-          return false;
-        }
-      });
-    });
+    if (ehDom && iso !== _ultimaDataAvisada) { _ultimaDataAvisada = iso; abrirModalDomingo(); }
   }
-  // Quando a data muda, já tira da lista os horários ocupados naquele
-  // dia — o cliente nem consegue escolher um horário que bate com
-  // outra ordem.
-  function atualizarHorariosDisponiveis(){
-    _horarioOk = false;
-    var d = dataInput.value;
-    if (!d){
-      limparOpcoesHorario();
-      horaInput.disabled = true;
-      setHorarioStatus('Escolha o dia e o horário que preferir (entre 8h e 18h, exceto domingos). Vamos confirmar a disponibilidade na hora.', null);
-      return;
-    }
-    if (ehDomingo(d)){
-      limparOpcoesHorario();
-      horaInput.disabled = true;
-      setHorarioStatus('Não atendemos aos domingos — escolha outro dia.', 'error');
-      abrirModalAviso('Não atendemos aos domingos', 'Escolha outro dia da semana para agendarmos sua visita.', 'Entendi');
-      return;
-    }
-    horaInput.disabled = true;
-    setHorarioStatus('Carregando horários disponíveis...', null);
-    Promise.all([verificarDiaBloqueado(d), slotsOcupadosMinutos(d)]).then(function(resultados){
-      var bloqueado = resultados[0];
-      var ocupados  = resultados[1];
-      if (bloqueado){
-        limparOpcoesHorario();
-        horaInput.disabled = true;
-        setHorarioStatus('Não estamos atendendo agendamentos para hoje.', 'error');
-        abrirModalAviso('Sem atendimento hoje', 'Hoje não estamos atendendo novos agendamentos. Escolha outro dia, ou fale com a gente pelo WhatsApp.', 'Entendi');
-        return;
-      }
-      horaInput.disabled = false;
-      var temLivre = preencherOpcoesHorario(ocupados);
-      if (!temLivre){
-        setHorarioStatus('Não sobrou horário livre nesse dia. Escolha outra data, ou fale com a gente pelo WhatsApp.', 'error');
-      } else {
-        setHorarioStatus('Escolha o horário que preferir.', null);
-      }
-    });
-  }
-
-  if (dataInput) dataInput.addEventListener('change', function(){ this.classList.remove('invalid'); atualizarHorariosDisponiveis(); });
-  if (horaInput) horaInput.addEventListener('change', function(){ this.classList.remove('invalid'); validarHorarioEscolhido(); });
+  if (dataInput) dataInput.addEventListener('change', function(){ this.classList.remove('invalid'); atualizarStatusData(); });
 
   var vehicles = [{ placa:'', modelo:'', ano:'', gnv:null, rastreio:null }];
 
@@ -1596,7 +1391,7 @@ select.invalid {
     linhas.push('Nome: ' + payload.nomeCompleto);
     linhas.push('Telefone: ' + payload.telefone);
     if(payload.dataDesejada){
-      linhas.push('Data e horário desejados: ' + formatarDataBR(payload.dataDesejada) + (payload.horaDesejada ? ' às ' + payload.horaDesejada : ''));
+      linhas.push('Data e período desejados: ' + formatarDataBR(payload.dataDesejada) + (payload.horaDesejada ? ' — ' + payload.horaDesejada : ''));
     }
     linhas.push('Endereço: ' + payload.endereco);
     if(payload.pontoReferencia){
@@ -1698,9 +1493,10 @@ select.invalid {
     if(!cidade)                    { markInvalid(cidadeInput);   firstInvalid = firstInvalid || cidadeInput; }
 
     var dataVal = dataInput.value;
-    var horaVal = horaInput.value;
-    if(!dataVal) { markInvalid(dataInput); firstInvalid = firstInvalid || dataInput; }
-    if(!horaVal) { markInvalid(horaInput); firstInvalid = firstInvalid || horaInput; }
+    var erroDataVal = erroData(dataVal);
+    var horaVal = periodoTexto(periodoEscolhido, dataVal);
+    if(erroDataVal) { markInvalid(dataInput); firstInvalid = firstInvalid || dataInput; }
+    if(!periodoEscolhido) { segPeriodo.classList.add('invalid'); firstInvalid = firstInvalid || segPeriodo; }
 
     vehicles.forEach(function(v, i){
       var modeloEl = document.getElementById('modelo-' + i);
@@ -1720,13 +1516,6 @@ select.invalid {
     if(firstInvalid){
       showError('Preencha os campos destacados antes de enviar.');
       firstInvalid.scrollIntoView({ behavior:'smooth', block:'center' });
-      return;
-    }
-
-    if(!_horarioOk){
-      showError('Confirme um horário disponível antes de enviar.');
-      validarHorarioEscolhido();
-      horaInput.scrollIntoView({ behavior:'smooth', block:'center' });
       return;
     }
 
