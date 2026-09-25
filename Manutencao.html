@@ -167,16 +167,6 @@ textarea{resize:vertical;min-height:80px}
     <h1>Agendar a manutenção</h1>
     <p class="lead">Conte o que está acontecendo e escolha o melhor dia para a visita do técnico.</p>
     <form id="form-retirada" novalidate>
-      <div class="card">
-        <div class="card-titulo">Antes de pedir a visita</div>
-        <p class="muted" style="font-size:.88rem;color:var(--text-2);margin-bottom:10px">Muitos casos se resolvem sem técnico:</p>
-        <ul style="font-size:.88rem;color:var(--text-2);line-height:1.6;padding-left:18px;margin-bottom:12px">
-          <li>Verifique se o veículo está em local com sinal. Garagens subterrâneas e locais fechados atrapalham.</li>
-          <li>Aguarde alguns minutos e atualize o aplicativo.</li>
-          <li>Instabilidade da operadora de celular não é defeito do equipamento (cláusula 23 do contrato).</li>
-        </ul>
-        <label class="termo"><input type="checkbox" id="f-aviso"><span>Estou de acordo e já fiz essas verificações.</span></label>
-      </div>
 
       <div class="card">
         <div class="card-titulo">Seus dados</div>
@@ -638,7 +628,6 @@ textarea{resize:vertical;min-height:80px}
     if (!/^[A-Z]{2}$/.test($('f-uf').value)) return marcar('f-uf', 'Informe a UF (ex.: RJ).');
     var ed = erroData($('f-data').value); if (ed) { $('data-erro').textContent = ed; $('data-erro').style.color = ''; return marcar('f-data', ed); }
     if (!S.periodo) { toast('Escolha o período: manhã ou tarde.', 'erro'); return false; }
-    if (!$('f-aviso').checked) { toast('Marque que já fez as verificações do início do formulário.', 'erro'); $('f-aviso').focus(); return false; }
     if (!$('f-motivo-tipo').value) return marcar('f-motivo-tipo', 'Escolha qual é o problema.');
     if ($('f-motivo-tipo').value === 'troca_veiculo') {
       if ($('f-novo-modelo').value.trim().length < 2) return marcar('f-novo-modelo', 'Informe o modelo do veículo novo.');
@@ -672,7 +661,7 @@ textarea{resize:vertical;min-height:80px}
       data: $('f-data').value, periodo: S.periodo,
       motivo: $('f-motivo-tipo').value, descricao: $('f-motivo').value,
       novoVeiculo: $('f-motivo-tipo').value === 'troca_veiculo' ? { modelo: $('f-novo-modelo').value.trim(), placa: $('f-novo-placa').value } : null,
-      avisoLido: $('f-aviso').checked, termo: $('f-termo').checked
+      termo: $('f-termo').checked
     };
     try {
       var res = await chamar('manut_enviar', { sessao: S.sessao, formulario: formulario });
