@@ -108,6 +108,12 @@ textarea{resize:vertical;min-height:80px}
 .resumo-linha span:first-child{color:var(--text-3);flex:0 0 88px}
 .check-grande{width:64px;height:64px;border-radius:50%;background:var(--green);color:#fff;display:flex;align-items:center;justify-content:center;margin:10px auto 16px}
 
+.modal-fundo{position:fixed;inset:0;background:rgba(15,23,42,.55);display:flex;align-items:flex-end;justify-content:center;z-index:60;padding:16px;padding-bottom:calc(16px + env(safe-area-inset-bottom,0px))}
+.modal-fundo[hidden]{display:none}
+.modal-caixa{background:#fff;border-radius:16px;max-width:520px;width:100%;padding:22px;max-height:88vh;overflow:auto;box-shadow:0 20px 50px rgba(0,0,0,.3)}
+.modal-caixa h2{font-family:var(--font-display);font-size:1.15rem;color:var(--navy);margin-bottom:12px}
+.modal-texto{font-size:.88rem;line-height:1.55;color:var(--text-2);margin-bottom:12px}
+@media (min-width:600px){.modal-fundo{align-items:center}}
 #toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(120px);max-width:calc(100% - 32px);width:max-content;background:var(--text);color:#fff;padding:12px 18px;border-radius:10px;font-size:.88rem;line-height:1.4;box-shadow:0 8px 24px rgba(0,0,0,.2);transition:transform .25s;z-index:50}
 #toast.mostrar{transform:translateX(-50%) translateY(0)}
 #toast.erro{background:var(--danger)} #toast.ok{background:#008F64} #toast.aviso{background:#A35A00}
@@ -150,7 +156,7 @@ textarea{resize:vertical;min-height:80px}
   <!-- 2. RESUMO / PENDÊNCIAS -->
   <section id="tela-resumo" class="tela">
     <h1 id="ola">Olá</h1>
-    <p class="lead">Antes de agendar, é preciso regularizar os pagamentos.</p>
+    <p class="lead" id="lead-resumo">Antes de agendar, é preciso regularizar os pagamentos.</p>
     <div id="area-pendencias"></div>
     <div id="area-futuras"></div>
     <button type="button" class="btn-link" data-recomecar style="display:block;margin:6px auto 0">Consultar outro CPF</button>
@@ -249,13 +255,6 @@ textarea{resize:vertical;min-height:80px}
         <div class="field"><label for="f-motivo">Descreva o problema</label><textarea id="f-motivo" maxlength="500" placeholder="Ex.: parou de atualizar desde sexta-feira."></textarea></div>
       </div>
 
-      <div class="card">
-        <label class="termo">
-          <input type="checkbox" id="f-termo">
-          <span>Declaro estar ciente de que, conforme a <b>cláusula 19</b> do contrato, caso seja constatado que o problema não tem relação com o equipamento de rastreamento ou bloqueio, será cobrada <b>taxa de visita frustrada de R$ 50,00, acrescida de R$ 1,50 por quilômetro</b> percorrido (ida e volta entre a base do técnico e o local do atendimento) e de eventuais despesas de deslocamento, como pedágios e estacionamento. Declaro também estar ciente de que, conforme a <b>cláusula 21</b>, danos causados por mau uso, manipulação em oficinas ou intervenção de terceiros podem gerar a cobrança de nova taxa de instalação e, em caso de dano permanente, de <b>R$ 300,00</b> pela reposição do equipamento.</span>
-        </label>
-      </div>
-
       <button type="submit" class="btn btn-pri" id="btn-enviar">Enviar pedido de manutenção</button>
       <button type="button" class="btn-link" id="voltar-resumo" style="display:block;margin:10px auto 0">Voltar</button>
     </form>
@@ -274,6 +273,18 @@ textarea{resize:vertical;min-height:80px}
     <p class="muted" style="text-align:center">Guarde o protocolo. Em caso de dúvida, fale com a gente pelo <a href="https://wa.me/5521980886087" target="_blank" rel="noopener">WhatsApp</a>.</p>
   </section>
 </main>
+
+<!-- MODAL: ciência da taxa de visita (última etapa) -->
+<div class="modal-fundo" id="modal-taxa" hidden>
+  <div class="modal-caixa" role="dialog" aria-modal="true" aria-labelledby="modal-taxa-titulo">
+    <h2 id="modal-taxa-titulo">Antes de confirmar a visita</h2>
+    <p class="modal-texto">Conforme a <b>cláusula 19</b> do contrato, caso seja constatado que o problema não tem relação com o equipamento de rastreamento ou bloqueio, será cobrada <b>taxa de visita frustrada de R$ 50,00, acrescida de R$ 1,50 por quilômetro</b> percorrido (ida e volta entre a base do técnico e o local do atendimento) e de eventuais despesas de deslocamento, como pedágios e estacionamento.</p>
+    <p class="modal-texto">Conforme a <b>cláusula 21</b>, danos causados por mau uso, manipulação em oficinas ou intervenção de terceiros podem gerar a cobrança de nova taxa de instalação e, em caso de dano permanente, de <b>R$ 300,00</b> pela reposição do equipamento.</p>
+    <label class="termo" style="margin:4px 0 14px"><input type="checkbox" id="f-termo"><span>Li e estou de acordo.</span></label>
+    <button type="button" class="btn btn-pri" id="btn-confirmar-taxa" disabled>Ok, estou ciente — enviar pedido</button>
+    <button type="button" class="btn-link" id="cancelar-taxa" style="display:block;margin:10px auto 0">Voltar e revisar</button>
+  </div>
+</div>
 
 <div id="toast" role="status" aria-live="polite"></div>
 
@@ -398,7 +409,7 @@ textarea{resize:vertical;min-height:80px}
       var res = await chamar('manut_consultar', { cpf: d });
       if (res.pedidoPendente) { mostrarPedidoExistente(res.pedidoPendente); return; }
       S.sessao = res.sessao; S.r = res;
-      if (res.liberado) abrirFormulario();
+      if (res.liberado && !(res.leves || []).length) abrirFormulario();
       else { renderResumo(); mostrar('tela-resumo', 2); }
     } catch (e) { tratarErro(e); }
     finally { carregando(btn, false); }
@@ -419,36 +430,52 @@ textarea{resize:vertical;min-height:80px}
     renderPendencias();
   }
 
+  function cardsFaturas(lista) {
+    return lista.map(function (f) {
+      var tag = '<span class="tag venc">Venceu em ' + dataBR(f.vencimento) + '</span>';
+      return '<div class="fatura"><div class="fatura-topo"><div class="fatura-valor">' + brl(f.valor) + '</div>' + tag + '</div>' +
+        '<button type="button" class="btn btn-pri" data-pix="' + esc(f.ref) + '">Pagar com PIX</button>' +
+        '<div class="pix" id="pix-' + esc(f.ref) + '" hidden></div></div>';
+    }).join('');
+  }
+  var RODAPE_PIX = '<p class="muted" style="text-align:center;margin-top:8px">O PIX costuma ser confirmado em poucos segundos.</p>' +
+    '<p class="muted" style="text-align:center;margin-top:8px">Em caso de dúvida, fale com a gente pelo <a href="https://wa.me/5521980886087" target="_blank" rel="noopener">WhatsApp</a>.</p>';
+
   function renderPendencias() {
     var r = S.r, area = $('area-pendencias');
-    if (r.liberado) {
-      area.innerHTML = '<div class="aviso verde"><b>Pagamento confirmado</b>Tudo certo. Você já pode agendar a manutenção.</div>' +
+    var bloq = r.bloqueantes || [], leves = r.leves || [];
+    var html;
+    if (!bloq.length && !leves.length) {
+      $('lead-resumo').textContent = 'Tudo certo com seus pagamentos.';
+      area.innerHTML = '<div class="aviso verde"><b>Pagamento confirmado</b>Obrigado! Você já pode agendar a manutenção.</div>' +
         '<button type="button" class="btn btn-ok" id="btn-ir-form">Agendar a manutenção</button>';
       $('btn-ir-form').addEventListener('click', abrirFormulario);
-    } else {
-      var n = r.bloqueantes.length;
-      var html = '<div class="aviso ambar"><b>' + (n === 1 ? 'Existe 1 fatura em aberto' : 'Existem ' + n + ' faturas em aberto') + '</b>' +
-        'Para agendar a manutenção, é preciso regularizar ' + (n === 1 ? 'a fatura vencida' : 'as faturas vencidas') + ' há mais de 10 dias (cláusula 9 do contrato). O pagamento é por PIX.</div>';
-      html += r.bloqueantes.map(function (f) {
-        var tag = f.vencida ? '<span class="tag venc">Venceu em ' + dataBR(f.vencimento) + '</span>'
-          : '<span class="tag prox">' + (f.dias === 0 ? 'Vence hoje' : 'Vence em ' + dataBR(f.vencimento)) + '</span>';
-        return '<div class="fatura"><div class="fatura-topo"><div class="fatura-valor">' + brl(f.valor) + '</div>' + tag + '</div>' +
-          '<button type="button" class="btn btn-pri" data-pix="' + esc(f.ref) + '">Pagar com PIX</button>' +
-          '<div class="pix" id="pix-' + esc(f.ref) + '" hidden></div></div>';
-      }).join('');
-      html += '<button type="button" class="btn btn-ok" id="btn-ja-paguei" style="margin-top:6px">Já paguei — verificar</button>' +
-        '<p class="muted" style="text-align:center;margin-top:8px">O PIX costuma ser confirmado em poucos segundos.</p>' +
-        '<p class="muted" style="text-align:center;margin-top:8px">Em caso de dúvida, fale com a gente pelo <a href="https://wa.me/5521980886087" target="_blank" rel="noopener">WhatsApp</a>.</p>';
-      area.innerHTML = html;
-      area.querySelectorAll('[data-pix]').forEach(function (b) { b.addEventListener('click', function () { abrirPix(b.getAttribute('data-pix'), b); }); });
-      $('btn-ja-paguei').addEventListener('click', verificar);
+      $('area-futuras').innerHTML = '';
+      return;
     }
-    var fut = $('area-futuras');
-    if (r.futuras && r.futuras.length) {
-      fut.innerHTML = '<div class="card" style="margin-top:16px"><div class="card-titulo">Próximas faturas</div>' +
-        '<p class="muted" style="margin-bottom:10px">Não precisa pagar agora. Elas serão ajustadas ou canceladas depois da retirada.</p>' +
-        r.futuras.map(function (f) { return '<div class="futura"><span>Vence em ' + dataBR(f.vencimento) + '</span><span>' + brl(f.valor) + '</span></div>'; }).join('') + '</div>';
-    } else fut.innerHTML = '';
+    if (bloq.length) {
+      // vencida há mais de 10 dias: precisa pagar para seguir
+      var todas = bloq.concat(leves), n = todas.length;
+      $('lead-resumo').textContent = 'Antes de agendar, é preciso regularizar os pagamentos.';
+      html = '<div class="aviso ambar"><b>' + (n === 1 ? 'Existe 1 fatura em aberto' : 'Existem ' + n + ' faturas em aberto') + '</b>' +
+        'Para agendar a manutenção, é preciso regularizar as faturas vencidas há mais de 10 dias (cláusula 9 do contrato). O pagamento é por PIX.</div>' +
+        cardsFaturas(todas) +
+        '<button type="button" class="btn btn-ok" id="btn-ja-paguei" style="margin-top:6px">Já paguei — verificar</button>' + RODAPE_PIX;
+    } else {
+      // vencida há até 10 dias: só um lembrete, o cliente pode seguir
+      var m = leves.length;
+      $('lead-resumo').textContent = 'Encontramos ' + (m === 1 ? 'uma fatura em aberto' : m + ' faturas em aberto') + ' no seu cadastro.';
+      html = '<div class="aviso ambar"><b>' + (m === 1 ? 'Existe 1 fatura em aberto' : 'Existem ' + m + ' faturas em aberto') + '</b>' +
+        'Você já realizou o pagamento? Se ainda não, aproveite e pague agora pelo PIX para manter seu rastreamento sempre ativo.</div>' +
+        cardsFaturas(leves) +
+        '<button type="button" class="btn btn-ok" id="btn-ja-paguei" style="margin-top:6px">Já paguei — verificar</button>' + RODAPE_PIX +
+        '<button type="button" class="btn-link" id="btn-ciente" style="display:block;margin:14px auto 0;font-size:.82rem">Estou ciente, continuar para a manutenção</button>';
+    }
+    area.innerHTML = html;
+    area.querySelectorAll('[data-pix]').forEach(function (b) { b.addEventListener('click', function () { abrirPix(b.getAttribute('data-pix'), b); }); });
+    $('btn-ja-paguei').addEventListener('click', verificar);
+    if ($('btn-ciente')) $('btn-ciente').addEventListener('click', abrirFormulario);
+    $('area-futuras').innerHTML = '';
   }
 
   async function abrirPix(ref, btn) {
@@ -475,15 +502,16 @@ textarea{resize:vertical;min-height:80px}
   }
 
   async function verificar() {
-    var btn = $('btn-ja-paguei'); var antes = S.r.bloqueantes.length;
+    var btn = $('btn-ja-paguei'); var antes = (S.r.bloqueantes || []).length + (S.r.leves || []).length;
     if (btn) carregando(btn, true, 'Verificando...');
     try {
       var d = await chamar('status', { sessao: S.sessao });
-      S.r.bloqueantes = d.bloqueantes; S.r.futuras = d.futuras; S.r.liberado = d.liberado;
+      S.r.bloqueantes = d.bloqueantes; S.r.futuras = d.futuras; S.r.leves = d.leves || []; S.r.liberado = d.liberado;
       renderPendencias();
-      if (d.liberado) toast('Pagamento confirmado! Agora é só agendar a retirada.', 'ok');
-      else if (d.bloqueantes.length >= antes) toast('Ainda não identificamos o pagamento. Tente de novo em 1 minuto.', 'aviso');
-      else toast('Pagamento confirmado. Ainda falta ' + (d.bloqueantes.length === 1 ? '1 fatura.' : d.bloqueantes.length + ' faturas.'), 'ok');
+      var restam = (d.bloqueantes || []).length + (d.leves || []).length;
+      if (!restam) toast('Pagamento confirmado! Agora é só agendar a manutenção.', 'ok');
+      else if (restam >= antes) toast('Ainda não identificamos o pagamento. Tente de novo em 1 minuto.', 'aviso');
+      else toast('Pagamento confirmado. Ainda falta ' + (restam === 1 ? '1 fatura.' : restam + ' faturas.'), 'ok');
     } catch (e) { if (btn && document.body.contains(btn)) carregando(btn, false); tratarErro(e); }
   }
 
@@ -499,7 +527,7 @@ textarea{resize:vertical;min-height:80px}
     var a = r.agenda; $('f-data').min = a.min; $('f-data').max = a.max;
     mostrar('tela-form', 3);
   }
-  $('voltar-resumo').addEventListener('click', function () { if (S.r && S.r.liberado) recomecar(); else mostrar('tela-resumo', 2); });
+  $('voltar-resumo').addEventListener('click', function () { if (S.r && S.r.liberado && !(S.r.leves || []).length) recomecar(); else { renderPendencias(); mostrar('tela-resumo', 2); } });
   $('f-motivo-tipo').addEventListener('change', function () { $('box-troca').hidden = this.value !== 'troca_veiculo'; this.classList.remove('invalido'); });
   $('f-novo-placa').addEventListener('input', function () { this.value = this.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 7); this.classList.remove('invalido'); });
 
@@ -617,13 +645,24 @@ textarea{resize:vertical;min-height:80px}
       if (!/^[A-Z]{3}\d[A-Z0-9]\d{2}$/.test($('f-novo-placa').value)) return marcar('f-novo-placa', 'Placa do veículo novo inválida.');
     }
     if ($('f-motivo').value.trim().length < 5) return marcar('f-motivo', 'Descreva o problema em poucas palavras.');
-    if (!$('f-termo').checked) { toast('Marque a caixa de ciência sobre as taxas para enviar.', 'erro'); $('f-termo').focus(); return false; }
     return true;
   }
 
-  $('form-retirada').addEventListener('submit', async function (ev) {
+  // Última etapa: modal de ciência da taxa de visita
+  function abrirModalTaxa() { $('f-termo').checked = false; $('btn-confirmar-taxa').disabled = true; $('modal-taxa').hidden = false; $('f-termo').focus(); }
+  function fecharModalTaxa() { $('modal-taxa').hidden = true; }
+  $('f-termo').addEventListener('change', function () { $('btn-confirmar-taxa').disabled = !this.checked; });
+  $('cancelar-taxa').addEventListener('click', fecharModalTaxa);
+  $('modal-taxa').addEventListener('click', function (ev) { if (ev.target === this) fecharModalTaxa(); });
+  $('btn-confirmar-taxa').addEventListener('click', function () { if (!$('f-termo').checked) return; fecharModalTaxa(); enviarPedido(); });
+
+  $('form-retirada').addEventListener('submit', function (ev) {
     ev.preventDefault();
     if (!validar()) return;
+    abrirModalTaxa();
+  });
+
+  async function enviarPedido() {
     var btn = $('btn-enviar'); carregando(btn, true, 'Enviando...');
     var formulario = {
       veiculos: S.veiculos.map(function (v) { return { modelo: String(v.modelo).trim(), placa: v.placa }; }),
@@ -650,7 +689,7 @@ textarea{resize:vertical;min-height:80px}
       if (e && e.status === 'FAILED_PRECONDITION') { toast(e.message, 'aviso'); S.r.liberado = false; renderResumo(); mostrar('tela-resumo', 2); verificar(); }
       else tratarErro(e);
     } finally { carregando(btn, false); }
-  });
+  }
 
   mostrar('tela-cpf', 1);
 })();
