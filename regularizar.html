@@ -278,9 +278,9 @@ textarea{resize:vertical;min-height:80px}
 
   function mostrarSemAcordo(res) {
     var nome = res.cliente && res.cliente.nome ? res.cliente.nome : 'cliente';
-    $('ok-icone').style.background = res.qtd === 0 ? 'var(--green)' : 'var(--navy)';
-    $('ok-titulo').textContent = res.qtd === 0 ? 'Tudo em dia, ' + nome + '!' : 'Olá, ' + nome;
-    $('ok-texto').textContent = res.qtd === 0
+    $('ok-icone').style.background = res.vencidas ? 'var(--navy)' : 'var(--green)';
+    $('ok-titulo').textContent = res.vencidas ? 'Olá, ' + nome : 'Tudo em dia, ' + nome + '!';
+    $('ok-texto').textContent = !res.vencidas
       ? 'Não encontramos faturas vencidas no seu cadastro. Obrigado por manter tudo em dia!'
       : 'Você tem 1 fatura vencida. Pague pelo boleto ou pelo aplicativo, como de costume. Se precisar, fale com a gente pelo WhatsApp.';
     mostrar('tela-ok', 4);
@@ -289,19 +289,21 @@ textarea{resize:vertical;min-height:80px}
   function renderProposta() {
     var r = S.r;
     $('ola').textContent = 'Olá, ' + (r.cliente.nome || 'cliente');
-    $('lead-proposta').textContent = 'Encontramos ' + r.faturas.length + ' faturas vencidas. Quite tudo agora em um só PIX e mantenha seu rastreamento funcionando.';
+    var nVenc = r.faturas.filter(function (f) { return f.vencida; }).length;
+    var nProx = r.faturas.length - nVenc;
+    $('lead-proposta').textContent = 'Encontramos ' + nVenc + (nVenc === 1 ? ' fatura vencida' : ' faturas vencidas') +
+      (nProx ? ' e ' + nProx + (nProx === 1 ? ' que vence em breve' : ' que vencem em breve') : '') +
+      '. Junte tudo em um só PIX e mantenha seu rastreamento funcionando.';
     $('lista-faturas').innerHTML = r.faturas.map(function (f) {
-      return '<div class="linha-fat"><div><div>Venceu em ' + dataBR(f.vencimento) + '</div><div class="muted">' + f.dias + (f.dias === 1 ? ' dia' : ' dias') + ' de atraso · original ' + brl(f.valor) + '</div></div>' +
+      var titulo = f.vencida ? 'Venceu em ' + dataBR(f.vencimento) : 'Vence em ' + dataBR(f.vencimento);
+      var sub = f.vencida ? f.dias + (f.dias === 1 ? ' dia' : ' dias') + ' de atraso · original ' + brl(f.valor) : 'A vencer · original ' + brl(f.valor);
+      return '<div class="linha-fat"><div><div>' + titulo + '</div><div class="muted">' + sub + '</div></div>' +
         '<div style="font-weight:700;white-space:nowrap">' + brl(f.atualizado) + '</div></div>';
     }).join('');
-    var h = '';
-    if (r.descontoValido) h += '<div class="selo">🎁 ' + r.descontoPct + '% de desconto — somente hoje, até 23h59</div>';
-    h += '<div class="conta"><div><span>Valor das faturas</span><span>' + brl(r.original) + '</span></div>' +
+    $('card-conta').innerHTML = '<div class="conta"><div><span>Valor das faturas</span><span>' + brl(r.original) + '</span></div>' +
       '<div><span>Multa e juros</span><span>' + brl(r.encargos) + '</span></div>' +
-      (r.descontoValido ? '<div class="desc"><span>Desconto de ' + r.descontoPct + '%</span><span>− ' + brl(r.desconto) + '</span></div>' : '') +
-      '<div class="final"><span>Total</span><span>' + (r.descontoValido ? '<span class="riscado">' + brl(r.total) + '</span>' : '') + brl(r.valorFinal) + '</span></div></div>';
-    if (!r.descontoValido) h += '<p class="muted" style="margin-top:10px">O desconto de ' + r.descontoPct + '% era válido até ' + dataBR(r.primeiroAcesso) + '. Você ainda pode quitar tudo de uma vez pelo PIX.</p>';
-    $('card-conta').innerHTML = h;
+      '<div class="final"><span>Total</span><span>' + brl(r.valorFinal) + '</span></div></div>' +
+      '<p class="muted" style="margin-top:10px">Tudo em um só PIX, sem precisar pagar boleto por boleto.</p>';
     $('btn-gerar').textContent = r.acordoGerado ? 'Ver meu PIX' : 'Gerar PIX para quitar tudo';
   }
 
