@@ -489,7 +489,7 @@ textarea{resize:vertical;min-height:80px}
     $('info-veic').textContent = (tot ? 'Sua assinatura tem ' + tot + (tot === 1 ? ' veículo. ' : ' veículos. ') : '') +
       'Informe o modelo e a placa de cada veículo que vai ter o rastreador retirado. Para mais de um, use "+ Adicionar veículo".';
     renderVeiculos();
-    var a = r.agenda; $('f-data').min = a.min; $('f-data').max = a.max;
+    var a = r.agenda; $('f-data').min = a.hojeLiberado || a.min; $('f-data').max = a.max;
     mostrar('tela-form', 3);
   }
   $('voltar-resumo').addEventListener('click', function () { mostrar('tela-resumo', 2); });
@@ -555,6 +555,7 @@ textarea{resize:vertical;min-height:80px}
   function erroData(iso) {
     var a = S.r.agenda;
     if (!iso) return 'Escolha a data.';
+    if (a.hojeLiberado && iso === a.hojeLiberado) return ''; // liberado pelo APP Técnico
     if (iso < a.min) return 'A data mais próxima disponível é ' + dataBR(a.min) + '.';
     if (iso > a.max) return 'Escolha uma data até ' + dataBR(a.max) + '.';
     if (diaSem(iso) === 0) return 'Não atendemos aos domingos. Escolha outro dia.';
@@ -562,7 +563,7 @@ textarea{resize:vertical;min-height:80px}
     return '';
   }
   function atualizarPeriodos() {
-    var iso = $('f-data').value, sab = iso && diaSem(iso) === 6;
+    var iso = $('f-data').value, sab = iso && diaSem(iso) === 6 && iso !== S.r.agenda.hojeLiberado;
     var bt = document.querySelector('#seg-periodo [data-p="tarde"]');
     bt.disabled = !!sab;
     if (sab && S.periodo === 'tarde') setPeriodo('');
@@ -575,7 +576,7 @@ textarea{resize:vertical;min-height:80px}
   document.querySelectorAll('#seg-periodo button').forEach(function (b) { b.addEventListener('click', function () { setPeriodo(b.getAttribute('data-p')); }); });
   $('f-data').addEventListener('change', function () {
     var e = erroData(this.value);
-    $('data-erro').textContent = e ? e : (this.value ? DIAS[diaSem(this.value)].charAt(0).toUpperCase() + DIAS[diaSem(this.value)].slice(1) + (diaSem(this.value) === 6 ? ' — só pela manhã.' : '') : '');
+    $('data-erro').textContent = e ? e : (this.value ? DIAS[diaSem(this.value)].charAt(0).toUpperCase() + DIAS[diaSem(this.value)].slice(1) + (this.value === S.r.agenda.hojeLiberado ? ' — hoje, horário liberado.' : diaSem(this.value) === 6 ? ' — só pela manhã.' : '') : '');
     $('data-erro').style.color = e ? '' : 'var(--text-3)';
     this.classList.toggle('invalido', !!e);
     atualizarPeriodos();
