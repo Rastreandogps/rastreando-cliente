@@ -921,6 +921,15 @@ select.invalid {
   </div>
 </div>
 
+<!-- MODAL: agenda cheia hoje -->
+<div class="modal-overlay-ag" id="modalAgendaCheia">
+  <div class="modal-box-ag">
+    <h3>Agenda cheia hoje</h3>
+    <p>Nossa agenda para hoje já está completa. Por favor, escolha outra data para o agendamento.</p>
+    <button type="button" class="modal-ag-fechar" id="modalAgendaCheiaFechar">Escolher outra data</button>
+  </div>
+</div>
+
 <!-- MODAL: atendimento aos domingos é excepcional -->
 <div class="modal-overlay-ag" id="modalDomingo">
   <div class="modal-box-ag">
@@ -1098,6 +1107,13 @@ select.invalid {
     var p=_hojeISOAgend.split('-'); return p[2]+'/'+p[1]+'/'+p[0];
   })();
   var _hojeBloquedoAdmin = false;
+  var modalAgendaCheia = document.getElementById('modalAgendaCheia');
+  var modalAgendaCheiaFechar = document.getElementById('modalAgendaCheiaFechar');
+  var _avisouAgendaCheia = false;
+  function abrirModalAgendaCheia(){ if (modalAgendaCheia) modalAgendaCheia.classList.add('open'); }
+  function fecharModalAgendaCheia(){ if (modalAgendaCheia) modalAgendaCheia.classList.remove('open'); }
+  if (modalAgendaCheiaFechar) modalAgendaCheiaFechar.addEventListener('click', fecharModalAgendaCheia);
+  if (modalAgendaCheia) modalAgendaCheia.addEventListener('click', function(ev){ if (ev.target === modalAgendaCheia) fecharModalAgendaCheia(); });
   (function verificarBloqueioAdmin(){
     if (!dbFirestore) return;
     dbFirestore.collection('configuracoes').doc('bloqueioAgendamento').get().then(function(snap){
@@ -1110,7 +1126,10 @@ select.invalid {
   })();
 
   function erroDataComAdmin(iso){
-    if (iso && iso === _hojeISOAgend && _hojeBloquedoAdmin) return 'Hoje não há disponibilidade de atendimento. Escolha outro dia.';
+    if (iso && iso === _hojeISOAgend && _hojeBloquedoAdmin) {
+      if (!_avisouAgendaCheia) { _avisouAgendaCheia = true; abrirModalAgendaCheia(); }
+      return 'Nossa agenda para hoje está cheia. Escolha outra data.';
+    }
     return erroData(iso);
   }
 
