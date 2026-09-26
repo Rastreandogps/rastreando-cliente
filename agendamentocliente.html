@@ -1090,11 +1090,35 @@ select.invalid {
     b.addEventListener('click', function(){ setPeriodo(b.getAttribute('data-p')); });
   });
 
+  // Verifica no Firestore se o admin bloqueou agendamentos para hoje
+  var _hojeISOAgend = (function(){
+    var d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  })();
+  var _hojeEmBRAgend = (function(){
+    var p=_hojeISOAgend.split('-'); return p[2]+'/'+p[1]+'/'+p[0];
+  })();
+  var _hojeBloquedoAdmin = false;
+  (function verificarBloqueioAdmin(){
+    if (!dbFirestore) return;
+    dbFirestore.collection('configuracoes').doc('bloqueioAgendamento').get().then(function(snap){
+      var d = snap.exists ? (snap.data()||{}) : {};
+      _hojeBloquedoAdmin = !!d.ativo && d.data === _hojeEmBRAgend;
+      if (_hojeBloquedoAdmin && dataInput.value === _hojeISOAgend) {
+        atualizarStatusData();
+      }
+    }).catch(function(){});
+  })();
+
+  function erroDataComAdmin(iso){
+    if (iso && iso === _hojeISOAgend && _hojeBloquedoAdmin) return 'Hoje não há disponibilidade de atendimento. Escolha outro dia.';
+    return erroData(iso);
+  }
+
   function atualizarStatusData(){
     var iso = dataInput.value;
     var btnTarde = segPeriodo.querySelector('[data-p="tarde"]');
     btnTarde.textContent = iso ? labelTarde(iso) : 'Tarde (13h–18h)';
-    var erro = erroData(iso);
+    var erro = erroDataComAdmin(iso);
     var ehDom = iso && !erro && diaSemana(iso) === 0;
     if (horarioStatusEl){
       horarioStatusEl.textContent = erro || (ehDom ? HINT_DOMINGO : HINT_PADRAO);
@@ -1493,7 +1517,7 @@ select.invalid {
     if(!cidade)                    { markInvalid(cidadeInput);   firstInvalid = firstInvalid || cidadeInput; }
 
     var dataVal = dataInput.value;
-    var erroDataVal = erroData(dataVal);
+    var erroDataVal = erroDataComAdmin(dataVal);
     var horaVal = periodoTexto(periodoEscolhido, dataVal);
     if(erroDataVal) { markInvalid(dataInput); firstInvalid = firstInvalid || dataInput; }
     if(!periodoEscolhido) { segPeriodo.classList.add('invalid'); firstInvalid = firstInvalid || segPeriodo; }
