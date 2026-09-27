@@ -317,7 +317,10 @@ textarea{resize:vertical;min-height:80px}
         '<p>O boleto pode levar até 3 dias úteis para ser identificado. Enquanto isso, liberamos seu acesso por <b>5 dias</b>. Se o pagamento não for identificado até lá, o acesso é bloqueado de novo. Essa liberação pode ser usada uma vez.</p>' +
         '<button type="button" class="btn btn-sec" id="btn-paguei">Já paguei, liberar por 5 dias</button>';
     } else if (r.bloqueado) {
-      pg = '<div class="card-titulo" style="margin-bottom:6px">Já pagou por boleto?</div><p>Você já usou a liberação de confiança. Pague pelo PIX acima para liberar na hora, ou aguarde a compensação do boleto: o acesso volta sozinho quando o pagamento for identificado.</p>';
+      var porque = r.motivoSemConfianca === 'atraso'
+        ? 'A liberação de 5 dias vale só para atraso de até ' + (r.confiancaMaxAtraso || 15) + ' dias.'
+        : 'Você já usou a liberação de confiança.';
+      pg = '<div class="card-titulo" style="margin-bottom:6px">Já pagou por boleto?</div><p>' + porque + ' Pague pelo PIX acima para liberar na hora, ou aguarde a compensação do boleto: o acesso volta sozinho quando o pagamento for identificado.</p>';
     }
     $('card-paguei').innerHTML = pg;
     $('card-paguei').style.display = pg ? '' : 'none';
