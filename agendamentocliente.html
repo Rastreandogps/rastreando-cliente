@@ -743,6 +743,7 @@ select.invalid {
     <div class="header-sub">Agendamento de serviço</div>
   </div>
 </header>
+<div id="bannerIndicacao" style="display:none;background:#ECFDF5;border-bottom:1px solid #A7F3D0;color:#065F46;padding:10px 16px;text-align:center;font-size:.92rem;font-weight:600;">🎁 <span id="bannerIndicacaoTxt"></span></div>
 
 
 
@@ -1433,6 +1434,7 @@ select.invalid {
     linhas.push('');
     linhas.push('Nome: ' + payload.nomeCompleto);
     linhas.push('Telefone: ' + payload.telefone);
+    if(INDICACAO && INDICACAO.nome){ linhas.push('🎁 Indicado por: ' + INDICACAO.nome); }
     if(payload.dataDesejada){
       linhas.push('Data e período desejados: ' + formatarDataBR(payload.dataDesejada) + (payload.horaDesejada ? ' — ' + payload.horaDesejada : ''));
     }
@@ -1582,7 +1584,15 @@ select.invalid {
     var waLink   = 'https://wa.me/' + CONFIG.WHATSAPP_NUMERO + '?text=' + encodeURIComponent(mensagem);
     var waWindow = window.open(waLink, '_blank');
 
-    avisarPainelNovoAgendamento(payload);
+    // Indicação: o código do cliente que indicou vai junto, escondido no ponto de referência
+    var payloadEnvio = payload;
+    if(INDICACAO.codigo){
+      payloadEnvio = JSON.parse(JSON.stringify(payload));
+      payloadEnvio.pontoReferencia = (payload.pontoReferencia + ' [IND:' + INDICACAO.codigo + ']').trim();
+      payloadEnvio.indicadoPor = INDICACAO.codigo;
+    }
+
+    avisarPainelNovoAgendamento(payloadEnvio);
 
     setSending(true);
 
@@ -1594,7 +1604,7 @@ select.invalid {
     fetch(CONFIG.SCRIPT_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(payloadEnvio)
     })
       .then(function(r){ return r.json(); })
       .then(function(data){
@@ -1608,6 +1618,28 @@ select.invalid {
         console.warn('[Rastreando GPS] Falha ao salvar na planilha. WhatsApp já foi aberto.');
       });
   });
+
+  // ── Indicação: link ?ind=CODIGO ──
+  var INDICACAO = { codigo: '', nome: '' };
+  (function(){
+    var m = /[?&]ind=([A-Za-z0-9]{6})(?:&|$)/.exec(location.search);
+    if(!m) return;
+    var codigo = m[1].toUpperCase();
+    if(!/^[A-Z2-9]{6}$/.test(codigo)) return;
+    INDICACAO.codigo = codigo;
+    fetch('https://southamerica-east1-rastreando-assinaturas.cloudfunctions.net/cancelamento', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ data: { acao: 'ind_nome', codigo: codigo } })
+    }).then(function(r){ return r.json(); }).then(function(j){
+      var res = j && j.result;
+      if(res && res.valido === false){ INDICACAO.codigo = ''; return; } // código que não existe: ignora
+      if(res && res.valido && res.primeiroNome){
+        INDICACAO.nome = res.primeiroNome;
+        var b = document.getElementById('bannerIndicacao'), t = document.getElementById('bannerIndicacaoTxt');
+        if(b && t){ t.textContent = 'Você foi indicado por ' + res.primeiroNome + '!'; b.style.display = 'block'; }
+      }
+    }).catch(function(){ /* sem internet para conferir: mantém o código, o painel confere depois */ });
+  })();
 
   renderVehicles();
   updateMeter();
