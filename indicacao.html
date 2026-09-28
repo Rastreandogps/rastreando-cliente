@@ -4,16 +4,16 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Rastreando GPS — Indique e ganhe</title>
-<meta name="description" content="Indique um amigo para a Rastreando GPS e ganhe 1 mensalidade grátis quando ele instalar. Digite seu CPF e receba o seu link.">
+<meta name="description" content="Indique um amigo para a Rastreando GPS e ganhe a mensalidade grátis de um veículo quando ele instalar. Digite seu CPF e receba o seu link.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://app.rastreandogpsbr.com.br/indicacao.html">
-<meta property="og:title" content="🎁 Indique e ganhe uma mensalidade grátis">
-<meta property="og:description" content="Indique um amigo para a Rastreando GPS e ganhe 1 mensalidade grátis quando ele instalar. Digite seu CPF e receba o seu link.">
+<meta property="og:title" content="🎁 Indique e ganhe mensalidade grátis de um veículo">
+<meta property="og:description" content="Indique um amigo para a Rastreando GPS e ganhe a mensalidade grátis de um veículo quando ele instalar. Digite seu CPF e receba o seu link.">
 <meta property="og:locale" content="pt_BR">
 <meta property="og:site_name" content="Rastreando GPS">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="🎁 Indique e ganhe uma mensalidade grátis">
-<meta name="twitter:description" content="Indique um amigo para a Rastreando GPS e ganhe 1 mensalidade grátis quando ele instalar. Digite seu CPF e receba o seu link.">
+<meta name="twitter:title" content="🎁 Indique e ganhe mensalidade grátis de um veículo">
+<meta name="twitter:description" content="Indique um amigo para a Rastreando GPS e ganhe a mensalidade grátis de um veículo quando ele instalar. Digite seu CPF e receba o seu link.">
 
 <meta name="theme-color" content="#1B3A6B">
 <meta name="robots" content="noindex, nofollow">
@@ -172,7 +172,7 @@ textarea{resize:vertical;min-height:80px}
   <!-- 1. CPF -->
   <section id="tela-cpf" class="tela">
     <div class="presente" aria-hidden="true">🎁</div>
-    <h1 style="text-align:center">Que tal ganhar uma mensalidade grátis?</h1>
+    <h1 style="text-align:center">Que tal ganhar mensalidade grátis de um veículo?</h1>
     <p class="lead" style="text-align:center">Indique a Rastreando GPS para um amigo e ganhe. Digite o seu CPF ou CNPJ para receber o seu link de indicação.</p>
     <form id="form-cpf" class="card" novalidate>
       <div class="field">
@@ -196,7 +196,7 @@ textarea{resize:vertical;min-height:80px}
   <section id="tela-link" class="tela">
     <div class="presente" aria-hidden="true">🎁</div>
     <h1 id="ola" style="text-align:center">Olá!</h1>
-    <p class="lead" style="text-align:center">Que tal ganhar uma mensalidade grátis? <b>Indique e ganhe.</b></p>
+    <p class="lead" style="text-align:center">Que tal ganhar mensalidade grátis de um veículo? <b>Indique e ganhe.</b></p>
     <div class="card">
       <div class="card-titulo">Seu link de indicação</div>
       <div class="link-box"><input type="text" id="link" readonly aria-label="Seu link de indicação"></div>
@@ -271,7 +271,7 @@ textarea{resize:vertical;min-height:80px}
       $('link').value = r.link;
       var msg = 'Oi! Eu uso o rastreamento da Rastreando GPS e recomendo muito. Agende a sua instalação por aqui: ' + r.link;
       $('btn-wpp').href = 'https://wa.me/?text=' + encodeURIComponent(msg);
-      $('regra').innerHTML = 'Para cada <b>pessoa</b> que você indicar e instalar o rastreador, você ganha <b>1 mensalidade grátis' + (r.teto ? ' de até ' + esc(brl(r.teto)) : '') + '</b>. O prêmio é por pessoa, e não por veículo, e vale depois que a instalação for concluída.';
+      $('regra').innerHTML = 'Para cada <b>pessoa</b> que você indicar e instalar o rastreador, você ganha a <b>mensalidade grátis de 1 veículo</b>. O prêmio é por pessoa indicada, mesmo que ela instale mais de um veículo, e vale depois que a instalação for concluída.';
       mostrar('tela-link');
     } catch (e) { $('cpf-erro').textContent = (e && e.message) || 'Erro inesperado.'; }
     finally { carregando(btn, false); }
