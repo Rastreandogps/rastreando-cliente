@@ -210,10 +210,6 @@ textarea{resize:vertical;min-height:80px}
       <div class="sub-titulo">👤 Novo proprietário</div>
       <div class="field"><label for="novo-nome">Nome completo</label><input type="text" id="novo-nome" maxlength="100" autocomplete="off"></div>
       <div class="field"><label for="novo-tel">WhatsApp / telefone (com DDD)</label><input type="tel" id="novo-tel" inputmode="numeric" maxlength="16" placeholder="(21) 99999-9999"></div>
-      <div class="dupla">
-        <div class="field"><label for="novo-cpf">CPF ou CNPJ <span class="opcional">(opcional)</span></label><input type="tel" id="novo-cpf" inputmode="numeric" maxlength="18" placeholder="000.000.000-00"></div>
-        <div class="field"><label for="novo-email">E-mail <span class="opcional">(opcional)</span></label><input type="email" id="novo-email" maxlength="120" autocomplete="off"></div>
-      </div>
       <div class="field"><label for="obs">Observação <span class="opcional">(opcional)</span></label><textarea id="obs" maxlength="500" placeholder="Ex.: melhor horário para ligar, data da entrega do veículo..."></textarea></div>
 
       <label class="termo"><input type="checkbox" id="termo"><span>Declaro que vendi o veículo acima e autorizo a Rastreando GPS a entrar em contato com o novo proprietário. Até a troca ser concluída, o serviço e a cobrança deste veículo continuam no meu nome.</span></label>
@@ -297,7 +293,6 @@ textarea{resize:vertical;min-height:80px}
     return '(' + t.slice(0, 2) + ') ' + t.slice(2, 7) + '-' + t.slice(7);
   }
   $('cpf').addEventListener('input', function () { this.value = mascaraDoc(this.value); $('cpf-erro').textContent = ''; });
-  $('novo-cpf').addEventListener('input', function () { this.value = mascaraDoc(this.value); });
   $('novo-tel').addEventListener('input', function () { this.value = mascaraTel(this.value); });
   $('placa').addEventListener('input', function () { this.value = this.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 7); });
 
@@ -338,14 +333,12 @@ textarea{resize:vertical;min-height:80px}
     var f = {
       modelo: $('modelo').value.trim(), placa: $('placa').value.trim(),
       novoNome: $('novo-nome').value.trim(), novoTelefone: soDig($('novo-tel').value),
-      novoCpf: soDig($('novo-cpf').value), novoEmail: $('novo-email').value.trim(),
       observacao: $('obs').value.trim(), termo: $('termo').checked
     };
     if (f.modelo.length < 2) { erro.textContent = 'Informe o modelo do veículo.'; return; }
     if (!/^[A-Z]{3}\d[A-Z0-9]\d{2}$/.test(f.placa)) { erro.textContent = 'Confira a placa (ex.: ABC1D23 ou ABC1234).'; return; }
     if (f.novoNome.length < 3) { erro.textContent = 'Informe o nome do novo proprietário.'; return; }
     if (f.novoTelefone.length !== 10 && f.novoTelefone.length !== 11) { erro.textContent = 'Confira o telefone do novo proprietário (com DDD).'; return; }
-    if (f.novoCpf && !docValido(f.novoCpf)) { erro.textContent = 'CPF/CNPJ do novo proprietário inválido (ou deixe em branco).'; return; }
     if (!f.termo) { erro.textContent = 'Marque a declaração para enviar.'; return; }
     var btn = $('btn-enviar'); carregando(btn, true, 'Enviando...');
     try {
