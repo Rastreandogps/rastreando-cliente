@@ -184,19 +184,12 @@ textarea{resize:vertical;min-height:80px}
     </form>
   </section>
 
-  <!-- 1b. PENDÊNCIA -->
-  <section id="tela-pend" class="tela">
-    <h1 id="pend-ola">Olá!</h1>
-    <div class="aviso ambar"><b>Falta pouco para participar</b>O Indique e ganhe é para clientes com o cadastro em dia. Regularize as faturas em aberto e volte aqui para pegar o seu link.</div>
-    <a class="btn btn-ok" id="pend-pagar" href="#" style="text-decoration:none">Ver e pagar minhas faturas</a>
-    <button type="button" class="btn-link" data-recomecar style="display:block;margin:16px auto 0">Consultar outro CPF</button>
-  </section>
-
   <!-- 2. LINK -->
   <section id="tela-link" class="tela">
     <div class="presente" aria-hidden="true">🎁</div>
     <h1 id="ola" style="text-align:center">Olá!</h1>
     <p class="lead" style="text-align:center">Que tal ganhar mensalidade grátis de um veículo? <b>Indique e ganhe.</b></p>
+    <div class="aviso ambar" id="aviso-atraso" style="display:none;margin-bottom:14px"><b>Deixe o cadastro em dia para receber o prêmio</b>Você já pode indicar, mas a mensalidade grátis só é liberada com as suas faturas em dia. <a href="#" id="pagar-atraso" style="font-weight:800;color:inherit;text-decoration:underline">Ver e pagar minhas faturas</a></div>
     <div class="card">
       <div class="card-titulo">Seu link de indicação</div>
       <div class="link-box"><input type="text" id="link" readonly aria-label="Seu link de indicação"></div>
@@ -220,7 +213,7 @@ textarea{resize:vertical;min-height:80px}
   function soDig(s) { return String(s || '').replace(/\D/g, ''); }
   var _t = null;
   function toast(msg, tipo) { var t = $('toast'); t.textContent = msg; t.className = 'mostrar ' + (tipo || ''); clearTimeout(_t); _t = setTimeout(function () { t.className = ''; }, 4200); }
-  function mostrar(tela) { ['tela-cpf', 'tela-pend', 'tela-link'].forEach(function (id) { $(id).classList.toggle('ativa', id === tela); }); window.scrollTo(0, 0); }
+  function mostrar(tela) { ['tela-cpf', 'tela-link'].forEach(function (id) { $(id).classList.toggle('ativa', id === tela); }); window.scrollTo(0, 0); }
   function carregando(btn, sim, texto) {
     if (sim) { btn.dataset.txt = btn.innerHTML; btn.disabled = true; btn.innerHTML = '<span class="spin"></span>' + esc(texto || 'Aguarde...'); }
     else { btn.disabled = false; if (btn.dataset.txt) btn.innerHTML = btn.dataset.txt; }
@@ -262,16 +255,13 @@ textarea{resize:vertical;min-height:80px}
     var btn = $('btn-cpf'); carregando(btn, true, 'Entrando...');
     try {
       var r = await chamar('ind_consultar', { cpf: d });
-      if (r.pendencias) {
-        $('pend-ola').textContent = 'Olá, ' + (r.primeiroNome || 'cliente') + '!';
-        $('pend-pagar').href = 'https://app.rastreandogpsbr.com.br/desbloqueio.html?cpf=' + d;
-        mostrar('tela-pend'); return;
-      }
+      $('aviso-atraso').style.display = r.emAtraso ? 'block' : 'none';
+      if (r.emAtraso) $('pagar-atraso').href = 'https://app.rastreandogpsbr.com.br/desbloqueio.html?cpf=' + d;
       $('ola').textContent = 'Olá, ' + (r.primeiroNome || 'cliente') + '!';
       $('link').value = r.link;
       var msg = 'Oi! Eu uso o rastreamento da Rastreando GPS e recomendo muito. Agende a sua instalação por aqui: ' + r.link;
       $('btn-wpp').href = 'https://wa.me/?text=' + encodeURIComponent(msg);
-      $('regra').innerHTML = 'Para cada <b>pessoa</b> que você indicar e instalar o rastreador, você ganha a <b>mensalidade grátis de 1 veículo</b>. O prêmio é por pessoa indicada, mesmo que ela instale mais de um veículo, e vale depois que a instalação for concluída.';
+      $('regra').innerHTML = 'Para cada <b>pessoa</b> que você indicar e instalar o rastreador, você ganha a <b>mensalidade grátis de 1 veículo</b>. O prêmio é por pessoa indicada, mesmo que ela instale mais de um veículo, e vale depois que a instalação for concluída, com o seu cadastro em dia.';
       mostrar('tela-link');
     } catch (e) { $('cpf-erro').textContent = (e && e.message) || 'Erro inesperado.'; }
     finally { carregando(btn, false); }
