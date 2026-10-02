@@ -54,16 +54,17 @@ h2{font-family:'Sora',sans-serif;font-size:1rem;font-weight:700;margin-bottom:12
 .gate-pular:focus-visible{outline:3px solid rgba(0,179,126,.6);outline-offset:2px;border-radius:8px}
 .gate-nota{margin-top:4px;font-size:.78rem;color:var(--txt2)}
 
-/* Bloco do app de Faturas em destaque + presente balançando */
-.caixa-faturas{margin-top:26px;padding:18px 14px 14px;border-radius:20px;border:2px solid var(--green);
+/* Bloco do app do rastreador em destaque + presente balançando */
+.caixa-destaque{margin-top:26px;padding:20px 14px 14px;border-radius:20px;border:2px solid var(--green);
   background:linear-gradient(180deg,rgba(0,179,126,.18),rgba(0,179,126,.05));
   box-shadow:0 0 0 4px rgba(0,179,126,.12),0 12px 32px rgba(0,179,126,.2)}
-.caixa-faturas h2{margin-top:0}
-.presente-emoji{display:inline-block;transform-origin:50% 75%;animation:balancar 2.6s ease-in-out infinite}
+.caixa-destaque h2.titulo-destaque{margin-top:0;margin-bottom:16px;font-size:1.45rem;line-height:1.15;font-weight:800;letter-spacing:-.01em;text-transform:uppercase}
+.titulo-destaque span{display:block;color:#2EE6A8;text-shadow:0 0 18px rgba(46,230,168,.45)}
+.btn .presente-emoji{display:inline-block;font-size:27px;line-height:1;color:inherit;transform-origin:50% 75%;animation:balancar 2.6s ease-in-out infinite}
 @keyframes balancar{0%,60%,100%{transform:none}
-  10%{transform:rotate(-14deg) scale(1.15)}20%{transform:rotate(12deg) scale(1.15)}
-  30%{transform:rotate(-10deg) scale(1.1)}40%{transform:rotate(8deg) scale(1.1)}50%{transform:rotate(0) scale(1.2)}}
-@media (prefers-reduced-motion:reduce){.presente-emoji{animation:none}}
+  10%{transform:rotate(-14deg) scale(1.08)}20%{transform:rotate(12deg) scale(1.08)}
+  30%{transform:rotate(-10deg) scale(1.05)}40%{transform:rotate(8deg) scale(1.05)}50%{transform:rotate(0) scale(1.12)}}
+@media (prefers-reduced-motion:reduce){.btn .presente-emoji{animation:none}}
 </style>
 <noscript><style>#gate-faturas{display:none!important}.gate-ativo .topo{display:flex!important}.gate-ativo main{display:block!important}</style></noscript>
 </head>
@@ -118,7 +119,8 @@ try {
     </a>
   </div>
 
-  <h2 style="margin-top:26px">Baixe o aplicativo</h2>
+  <div class="caixa-destaque">
+  <h2 class="titulo-destaque">Baixe o aplicativo<span>do seu rastreador</span></h2>
   <div class="botoes">
     <a class="btn destaque" id="btn-principal" href="https://play.google.com/store/apps/details?id=br.com.rastreandogps2" target="_blank" rel="noopener">
       <div class="ico"><svg viewBox="0 0 24 24"><path fill="#00B37E" d="M3.6 2.3 13.4 12l-9.8 9.7c-.4-.2-.6-.6-.6-1.1V3.4c0-.5.2-.9.6-1.1Z"/><path fill="#1B3A6B" d="m16.6 8.8-3.2 3.2 3.2 3.2 3.7-2.1c.9-.5.9-1.7 0-2.2l-3.7-2.1Z"/><path fill="#4A7BD0" d="M3.6 2.3c.3-.2.8-.2 1.2 0l11.8 6.5-3.2 3.2L3.6 2.3Z"/><path fill="#2451A0" d="m13.4 12 3.2 3.2-11.8 6.5c-.4.2-.9.2-1.2 0L13.4 12Z"/></svg></div>
@@ -133,9 +135,9 @@ try {
       <div><b>Acessar pelo site</b><span>Pelo computador ou navegador</span></div>
     </a>
   </div>
+  </div>
 
-  <div class="caixa-faturas">
-  <h2>Baixe o app de Faturas</h2>
+  <h2 style="margin-top:26px">Baixe o app de Faturas</h2>
   <p class="lead" style="margin-bottom:12px">Veja e pague suas faturas pelo celular, por PIX ou boleto. Para entrar, use o seu CPF.</p>
   <div class="botoes">
     <a class="btn" id="fat-android" href="https://play.google.com/store/apps/details?id=br.com.rastreandogpsfaturas" target="_blank" rel="noopener">
@@ -146,7 +148,6 @@ try {
       <div class="ico"><svg viewBox="0 0 24 24"><path fill="#1B3A6B" d="M16.4 12.6c0-2.4 2-3.6 2.1-3.7-1.1-1.7-2.9-1.9-3.5-1.9-1.5-.2-2.9.9-3.7.9-.8 0-1.9-.9-3.2-.8-1.6 0-3.2 1-4 2.4-1.7 3-.4 7.4 1.2 9.8.8 1.2 1.8 2.5 3 2.4 1.2 0 1.7-.8 3.2-.8 1.5 0 1.9.8 3.2.8 1.3 0 2.2-1.2 3-2.4.9-1.4 1.3-2.7 1.3-2.8 0 0-2.6-1-2.6-3.9ZM14 5.4c.7-.8 1.1-1.9 1-3-1 0-2.1.7-2.8 1.5-.6.7-1.2 1.8-1 2.9 1.1.1 2.1-.6 2.8-1.4Z"/></svg></div>
       <div><b>Baixar para iPhone</b><span>App Store</span></div>
     </a>
-  </div>
   </div>
 
   <p class="rodape">Seu login e senha foram enviados pelo WhatsApp.<br>Qualquer dúvida, fale com a gente por lá.</p>
