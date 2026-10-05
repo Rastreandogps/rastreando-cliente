@@ -188,8 +188,22 @@ textarea{resize:vertical;min-height:80px}
       <div class="card">
         <div class="card-titulo">Veículo novo <span class="opc">(para onde vai o rastreador)</span></div>
         <div class="linha">
-          <div class="field"><label for="f-novo-modelo">Modelo</label><input type="text" id="f-novo-modelo" maxlength="60" placeholder="Ex.: HB20 2022"></div>
-          <div class="field" style="flex:0 0 130px"><label for="f-novo-placa">Placa</label><input type="text" id="f-novo-placa" maxlength="8" placeholder="ABC1D23" autocapitalize="characters"></div>
+          <div class="field"><label for="f-novo-modelo">Modelo</label><input type="text" id="f-novo-modelo" maxlength="60" placeholder="Ex.: HB20"></div>
+          <div class="field" style="flex:0 0 110px"><label for="f-novo-ano">Ano</label><input type="tel" id="f-novo-ano" inputmode="numeric" maxlength="4" placeholder="2022"></div>
+        </div>
+        <div class="field">
+          <label>Tem GNV?</label>
+          <div class="seg" id="seg-gnv">
+            <button type="button" data-v="sim">Sim</button>
+            <button type="button" data-v="nao">Não</button>
+          </div>
+        </div>
+        <div class="field">
+          <label>Rastreamento</label>
+          <div class="seg" id="seg-bloqueio">
+            <button type="button" data-v="com">Com bloqueio</button>
+            <button type="button" data-v="sem">Sem bloqueio</button>
+          </div>
         </div>
         <div class="field"><label for="f-motivo">Observação <span class="opc">(opcional)</span></label><textarea id="f-motivo" maxlength="500" placeholder="Ex.: o carro novo fica na garagem do trabalho."></textarea></div>
       </div>
@@ -270,7 +284,7 @@ textarea{resize:vertical;min-height:80px}
 (function () {
   'use strict';
   var URL_FN = 'https://southamerica-east1-rastreando-assinaturas.cloudfunctions.net/cancelamento';
-  var S = { sessao: null, r: null, veiculos: [], periodo: '' };
+  var S = { sessao: null, r: null, veiculos: [], periodo: '', gnv: '', bloqueio: '' };
   var $ = function (id) { return document.getElementById(id); };
   // Aviso em tempo real para o APP Técnico (projeto rastreando-gps), igual ao formulário de agendamento.
   // Leva só o protocolo — nenhum dado pessoal. Se falhar, o APP vê o pedido na checagem normal.
@@ -348,6 +362,7 @@ textarea{resize:vertical;min-height:80px}
   }
 
   function recomecar() {
+    S.gnv = ''; S.bloqueio = ''; document.querySelectorAll('#seg-gnv button, #seg-bloqueio button').forEach(function (b) { b.classList.remove('ativo'); });
     S = { sessao: null, r: null, veiculos: [], periodo: '' };
     $('form-retirada').reset();
     $('cpf').value = ''; $('cpf-erro').textContent = '';
@@ -384,7 +399,7 @@ textarea{resize:vertical;min-height:80px}
       var res = await chamar('troca_consultar', { cpf: d });
       if (res.pedidoPendente) { mostrarPedidoExistente(res.pedidoPendente); return; }
       S.sessao = res.sessao; S.r = res;
-      if (res.liberado && !(res.leves || []).length) abrirFormulario();
+      if (res.liberado && !(res.leves || []).length && !(res.bloqueantes || []).length) abrirFormulario();
       else { renderResumo(); mostrar('tela-resumo', 2); }
     } catch (e) { tratarErro(e); }
     finally { carregando(btn, false); }
@@ -428,28 +443,16 @@ textarea{resize:vertical;min-height:80px}
       $('area-futuras').innerHTML = '';
       return;
     }
-    if (bloq.length) {
-      // vencida há mais de 10 dias: precisa pagar para seguir
-      var todas = bloq.concat(leves), n = todas.length;
-      $('lead-resumo').textContent = 'Antes de agendar, é preciso regularizar os pagamentos.';
-      html = '<div class="aviso ambar"><b>' + (n === 1 ? 'Existe 1 fatura em aberto' : 'Existem ' + n + ' faturas em aberto') + '</b>' +
-        'Para agendar a troca, é preciso regularizar as faturas vencidas há mais de 10 dias (cláusula 9 do contrato). O pagamento é por PIX.</div>' +
-        cardsFaturas(todas) +
-        '<button type="button" class="btn btn-ok" id="btn-ja-paguei" style="margin-top:6px">Já paguei — verificar</button>' + RODAPE_PIX;
-    } else {
-      // vencida há até 10 dias: só um lembrete, o cliente pode seguir
-      var m = leves.length;
-      $('lead-resumo').textContent = 'Encontramos ' + (m === 1 ? 'uma fatura em aberto' : m + ' faturas em aberto') + ' no seu cadastro.';
-      html = '<div class="aviso ambar"><b>' + (m === 1 ? 'Existe 1 fatura em aberto' : 'Existem ' + m + ' faturas em aberto') + '</b>' +
-        'Você já realizou o pagamento? Se ainda não, aproveite e pague agora pelo PIX para manter seu rastreamento sempre ativo.</div>' +
-        cardsFaturas(leves) +
-        '<button type="button" class="btn btn-ok" id="btn-ja-paguei" style="margin-top:6px">Já paguei — verificar</button>' + RODAPE_PIX +
-        '<button type="button" class="btn-link" id="btn-ciente" style="display:block;margin:14px auto 0;font-size:.82rem">Estou ciente, continuar para a troca</button>';
-    }
+    // troca de veículo: toda fatura vencida precisa estar paga (não tem como pular)
+    var todas = bloq.concat(leves), n = todas.length;
+    $('lead-resumo').textContent = 'Antes de pedir a troca, é preciso pagar as faturas vencidas.';
+    html = '<div class="aviso ambar"><b>' + (n === 1 ? 'Existe 1 fatura vencida' : 'Existem ' + n + ' faturas vencidas') + '</b>' +
+      'Para pedir a troca de veículo, todas as faturas vencidas precisam estar pagas. O pagamento é por PIX.</div>' +
+      cardsFaturas(todas) +
+      '<button type="button" class="btn btn-ok" id="btn-ja-paguei" style="margin-top:6px">Já paguei — verificar</button>' + RODAPE_PIX;
     area.innerHTML = html;
     area.querySelectorAll('[data-pix]').forEach(function (b) { b.addEventListener('click', function () { abrirPix(b.getAttribute('data-pix'), b); }); });
     $('btn-ja-paguei').addEventListener('click', verificar);
-    if ($('btn-ciente')) $('btn-ciente').addEventListener('click', abrirFormulario);
     $('area-futuras').innerHTML = '';
   }
 
@@ -503,7 +506,6 @@ textarea{resize:vertical;min-height:80px}
     mostrar('tela-form', 3);
   }
   $('voltar-resumo').addEventListener('click', function () { if (S.r && S.r.liberado && !(S.r.leves || []).length) recomecar(); else { renderPendencias(); mostrar('tela-resumo', 2); } });
-  $('f-novo-placa').addEventListener('input', function () { this.value = this.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 7); this.classList.remove('invalido'); });
 
 
   function renderVeiculos() {
@@ -531,6 +533,18 @@ textarea{resize:vertical;min-height:80px}
     S.veiculos.push({ modelo: '', placa: '' }); renderVeiculos();
     var ins = $('lista-veic').querySelectorAll('input[data-c="modelo"]'); ins[ins.length - 1].focus();
   });
+
+  // Veículo novo: ano, GNV e bloqueio
+  $('f-novo-ano').addEventListener('input', function () { this.value = soDig(this.value).slice(0, 4); this.classList.remove('invalido'); });
+  function escolha(grupo, chave) {
+    document.querySelectorAll('#' + grupo + ' button').forEach(function (b) {
+      b.addEventListener('click', function () {
+        S[chave] = b.getAttribute('data-v');
+        document.querySelectorAll('#' + grupo + ' button').forEach(function (x) { x.classList.toggle('ativo', x === b); });
+      });
+    });
+  }
+  escolha('seg-gnv', 'gnv'); escolha('seg-bloqueio', 'bloqueio');
 
   // Telefone
   $('f-outro').addEventListener('input', function () {
@@ -614,8 +628,10 @@ textarea{resize:vertical;min-height:80px}
     var ed = erroData($('f-data').value); if (ed) { $('data-erro').textContent = ed; $('data-erro').style.color = ''; return marcar('f-data', ed); }
     if (!S.periodo) { toast('Escolha o período: manhã ou tarde.', 'erro'); return false; }
     if ($('f-novo-modelo').value.trim().length < 2) return marcar('f-novo-modelo', 'Informe o modelo do veículo novo.');
-    if (!/^[A-Z]{3}\d[A-Z0-9]\d{2}$/.test($('f-novo-placa').value)) return marcar('f-novo-placa', 'Placa do veículo novo inválida. Ex.: ABC1234 ou ABC1D23.');
-    if (S.veiculos[0] && $('f-novo-placa').value === S.veiculos[0].placa) return marcar('f-novo-placa', 'A placa do veículo novo é igual à do atual.');
+    var ano = Number($('f-novo-ano').value), anoMax = new Date().getFullYear() + 1;
+    if (!/^\d{4}$/.test($('f-novo-ano').value) || ano < 1950 || ano > anoMax) return marcar('f-novo-ano', 'Informe o ano do veículo novo (ex.: 2022).');
+    if (!S.gnv) { toast('Informe se o veículo novo tem GNV.', 'erro'); $('seg-gnv').scrollIntoView({ block: 'center' }); return false; }
+    if (!S.bloqueio) { toast('Escolha com ou sem bloqueio.', 'erro'); $('seg-bloqueio').scrollIntoView({ block: 'center' }); return false; }
     return true;
   }
 
@@ -641,7 +657,7 @@ textarea{resize:vertical;min-height:80px}
       bairro: $('f-bairro').value, cidade: $('f-cidade').value, uf: $('f-uf').value, referencia: $('f-ref').value,
       data: $('f-data').value, periodo: S.periodo,
       motivo: 'troca_veiculo', descricao: $('f-motivo').value.trim(),
-      novoVeiculo: { modelo: $('f-novo-modelo').value.trim(), placa: $('f-novo-placa').value },
+      novoVeiculo: { modelo: $('f-novo-modelo').value.trim(), placa: '', ano: $('f-novo-ano').value, gnv: S.gnv, tipoRastreio: S.bloqueio },
       termo: $('f-termo').checked
     };
     try {
@@ -651,7 +667,9 @@ textarea{resize:vertical;min-height:80px}
       $('ok-texto').textContent = 'Nossa equipe vai confirmar a visita pelo WhatsApp.';
       $('ok-protocolo').textContent = res.protocolo;
       $('ok-resumo').innerHTML = linhaResumo('Veículo atual', formulario.veiculos.map(function (v) { return v.modelo + ' (' + v.placa + ')'; }).join(', ')) +
-        linhaResumo('Veículo novo', formulario.novoVeiculo.modelo + ' (' + formulario.novoVeiculo.placa + ')') +
+        linhaResumo('Veículo novo', formulario.novoVeiculo.modelo + ' ' + formulario.novoVeiculo.ano) +
+        linhaResumo('GNV', formulario.novoVeiculo.gnv === 'sim' ? 'Sim' : 'Não') +
+        linhaResumo('Rastreamento', formulario.novoVeiculo.tipoRastreio === 'com' ? 'Com bloqueio' : 'Sem bloqueio') +
         linhaResumo('Data', dataBR(res.data) + ' (' + DIAS[diaSem(res.data)] + ')') +
         linhaResumo('Período', nomePeriodo(res.periodo)) + linhaResumo('Endereço', res.enderecoTexto);
       S.sessao = null;
