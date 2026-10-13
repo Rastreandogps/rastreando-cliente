@@ -779,6 +779,10 @@ select.invalid {
           <label for="telefone">Telefone / WhatsApp <span class="req">*</span></label>
           <input type="text" id="telefone" placeholder="(21) 98765-4321" autocomplete="tel" inputmode="tel">
         </div>
+        <div class="field">
+          <label for="cpfCliente">CPF ou CNPJ <span style="font-weight:400;opacity:.7">(opcional)</span></label>
+          <input type="text" id="cpfCliente" placeholder="000.000.000-00" autocomplete="off" inputmode="numeric" maxlength="18">
+        </div>
       </div>
     </div>
 
@@ -999,6 +1003,26 @@ select.invalid {
 
   var nomeInput       = document.getElementById('nomeCompleto');
   var telefoneInput   = document.getElementById('telefone');
+  // 13/10/2026: CPF/CNPJ opcional. Se preenchido, vai escondido junto (como a indicação) e já preenche o cadastro no rastreamento.
+  var cpfInput        = document.getElementById('cpfCliente');
+  function cpfSoDig(v){ return String(v || '').replace(/\D/g, ''); }
+  function cpfValido(c){
+    if (!/^\d{11}$/.test(c) || /^(\d)\1{10}$/.test(c)) return false;
+    var s = 0, i, r;
+    for (i = 0; i < 9; i++) s += +c[i] * (10 - i); r = (s * 10) % 11; if (r === 10) r = 0; if (r !== +c[9]) return false;
+    s = 0; for (i = 0; i < 10; i++) s += +c[i] * (11 - i); r = (s * 10) % 11; if (r === 10) r = 0; return r === +c[10];
+  }
+  function cnpjValido(c){
+    if (!/^\d{14}$/.test(c) || /^(\d)\1{13}$/.test(c)) return false;
+    var calc = function(n){ var p = n === 12 ? [5,4,3,2,9,8,7,6,5,4,3,2] : [6,5,4,3,2,9,8,7,6,5,4,3,2], s = 0; for (var i = 0; i < n; i++) s += +c[i] * p[i]; var r = s % 11; return r < 2 ? 0 : 11 - r; };
+    return calc(12) === +c[12] && calc(13) === +c[13];
+  }
+  function cpfFormatar(v){
+    var d = cpfSoDig(v).slice(0, 14);
+    if (d.length <= 11) return d.replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+    return d.replace(/^(\d{2})(\d)/, '$1.$2').replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3').replace(/\.(\d{3})(\d)/, '.$1/$2').replace(/(\d{4})(\d)/, '$1-$2');
+  }
+  if (cpfInput) cpfInput.addEventListener('input', function(){ this.classList.remove('invalid'); this.value = cpfFormatar(this.value); });
   var cepInput        = document.getElementById('cep');
   var cepStatus       = document.getElementById('cepStatus');
   var ruaInput        = document.getElementById('rua');
@@ -1117,13 +1141,25 @@ select.invalid {
   if (modalAgendaCheia) modalAgendaCheia.addEventListener('click', function(ev){ if (ev.target === modalAgendaCheia) fecharModalAgendaCheia(); });
   (function verificarBloqueioAdmin(){
     if (!dbFirestore) return;
-    dbFirestore.collection('configuracoes').doc('bloqueioAgendamento').get().then(function(snap){
-      var d = snap.exists ? (snap.data()||{}) : {};
+    // 13/10/2026: antes lia UMA vez, ao abrir a página. Quem já estava com o formulário aberto quando o
+    // administrador bloqueou o dia continuava podendo marcar para hoje. Agora fica ouvindo: bloqueou, vale na hora.
+    var aplicar = function(snap){
+      var d = snap && snap.exists ? (snap.data()||{}) : {};
+      var antes = _hojeBloquedoAdmin;
       _hojeBloquedoAdmin = !!d.ativo && d.data === _hojeEmBRAgend;
-      if (_hojeBloquedoAdmin && dataInput.value === _hojeISOAgend) {
+      if (_hojeBloquedoAdmin !== antes && dataInput.value === _hojeISOAgend) {
+        if (!_hojeBloquedoAdmin) _avisouAgendaCheia = false;
         atualizarStatusData();
       }
-    }).catch(function(){});
+    };
+    try {
+      dbFirestore.collection('configuracoes').doc('bloqueioAgendamento').onSnapshot(aplicar, function(){
+        // se o "ouvir" falhar, tenta a leitura simples de antes
+        dbFirestore.collection('configuracoes').doc('bloqueioAgendamento').get().then(aplicar).catch(function(){});
+      });
+    } catch (e) {
+      dbFirestore.collection('configuracoes').doc('bloqueioAgendamento').get().then(aplicar).catch(function(){});
+    }
   })();
 
   function erroDataComAdmin(iso){
@@ -1537,6 +1573,9 @@ select.invalid {
     if(!bairro)                    { markInvalid(bairroInput);   firstInvalid = firstInvalid || bairroInput; }
     if(!cidade)                    { markInvalid(cidadeInput);   firstInvalid = firstInvalid || cidadeInput; }
 
+    var cpfDig = cpfInput ? cpfSoDig(cpfInput.value) : '';
+    if (cpfDig && !(cpfValido(cpfDig) || cnpjValido(cpfDig))) { markInvalid(cpfInput); firstInvalid = firstInvalid || cpfInput; }
+
     var dataVal = dataInput.value;
     var erroDataVal = erroDataComAdmin(dataVal);
     var horaVal = periodoTexto(periodoEscolhido, dataVal);
@@ -1590,6 +1629,12 @@ select.invalid {
       payloadEnvio = JSON.parse(JSON.stringify(payload));
       payloadEnvio.pontoReferencia = (payload.pontoReferencia + ' [IND:' + INDICACAO.codigo + ']').trim();
       payloadEnvio.indicadoPor = INDICACAO.codigo;
+    }
+    // CPF/CNPJ (opcional): vai escondido no ponto de referência como [CPF:números]; o APP Técnico tira da tela e usa no bonequinho
+    if(cpfDig){
+      if(payloadEnvio === payload) payloadEnvio = JSON.parse(JSON.stringify(payload));
+      payloadEnvio.pontoReferencia = (payloadEnvio.pontoReferencia + ' [CPF:' + cpfDig + ']').trim();
+      payloadEnvio.cpf = cpfDig;
     }
 
     avisarPainelNovoAgendamento(payloadEnvio);
