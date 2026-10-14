@@ -419,8 +419,10 @@ textarea{resize:vertical;min-height:80px}
       $('btn-ir-form').addEventListener('click', abrirFormulario);
     } else {
       var n = r.bloqueantes.length;
-      var html = '<div class="aviso ambar"><b>' + (n === 1 ? 'Existe 1 fatura em aberto' : 'Existem ' + n + ' faturas em aberto') + '</b>' +
-        'Para seguir com o cancelamento, é preciso pagar ' + (n === 1 ? 'a fatura vencida ou que vence nos próximos 10 dias' : 'as faturas vencidas ou que vencem nos próximos 10 dias') + '. O pagamento é por PIX.</div>';
+      // 14/10/2026 (pedido do dono): a pendência NÃO impede mais o agendamento da retirada; só fica o aviso
+      var html = '<div class="aviso ambar"><b>' + (n === 1 ? 'Ainda existe 1 fatura em aberto' : 'Ainda existem ' + n + ' faturas em aberto') + '</b>' +
+        'Você já pode agendar a retirada do equipamento. ' + (n === 1 ? 'Essa fatura continua pendente' : 'Essas faturas continuam pendentes') + ' e precisa' + (n === 1 ? '' : 'm') + ' ser paga' + (n === 1 ? '' : 's') + ' mesmo depois da retirada. Se quiser, pague agora por PIX.</div>' +
+        '<button type="button" class="btn btn-ok" id="btn-ir-form" style="margin-bottom:12px">Agendar a retirada</button>';
       html += r.bloqueantes.map(function (f) {
         var tag = f.vencida ? '<span class="tag venc">Venceu em ' + dataBR(f.vencimento) + '</span>'
           : '<span class="tag prox">' + (f.dias === 0 ? 'Vence hoje' : 'Vence em ' + dataBR(f.vencimento)) + '</span>';
@@ -433,6 +435,7 @@ textarea{resize:vertical;min-height:80px}
       area.innerHTML = html;
       area.querySelectorAll('[data-pix]').forEach(function (b) { b.addEventListener('click', function () { abrirPix(b.getAttribute('data-pix'), b); }); });
       $('btn-ja-paguei').addEventListener('click', verificar);
+      $('btn-ir-form').addEventListener('click', abrirFormulario);
     }
     var fut = $('area-futuras');
     if (r.futuras && r.futuras.length) {
@@ -627,6 +630,9 @@ textarea{resize:vertical;min-height:80px}
       $('ok-resumo').innerHTML = linhaResumo('Data', dataBR(res.data) + ' (' + DIAS[diaSem(res.data)] + ')') +
         linhaResumo('Período', nomePeriodo(res.periodo)) + linhaResumo('Endereço', res.enderecoTexto) +
         linhaResumo('Veículos', formulario.veiculos.map(function (v) { return v.modelo + ' (' + v.placa + ')'; }).join(', '));
+      if (res.pendencias && res.pendencias.qtd) { // 14/10/2026: lembrete da pendência que ficou em aberto
+        $('ok-resumo').innerHTML += '<div class="aviso ambar" style="margin-top:12px"><b>' + (res.pendencias.qtd === 1 ? 'Ainda existe 1 fatura em aberto' : 'Ainda existem ' + res.pendencias.qtd + ' faturas em aberto') + '</b>A retirada foi agendada, mas ' + (res.pendencias.qtd === 1 ? 'essa fatura continua pendente e precisa ser paga.' : 'essas faturas continuam pendentes e precisam ser pagas.') + '</div>';
+      }
       S.sessao = null;
       mostrar('tela-ok', 4);
     } catch (e) {
