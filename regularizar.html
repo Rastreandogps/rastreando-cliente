@@ -291,9 +291,10 @@ textarea{resize:vertical;min-height:80px}
     $('ola').textContent = 'Olá, ' + (r.cliente.nome || 'cliente');
     var nVenc = r.faturas.filter(function (f) { return f.vencida; }).length;
     var nProx = r.faturas.length - nVenc;
+    var umaSo = r.faturas.length === 1; // 15/10/2026: 1 fatura também pode ser paga aqui
     $('lead-proposta').textContent = 'Encontramos ' + nVenc + (nVenc === 1 ? ' fatura vencida' : ' faturas vencidas') +
       (nProx ? ' e ' + nProx + (nProx === 1 ? ' que vence em breve' : ' que vencem em breve') : '') +
-      '. Junte tudo em um só PIX e mantenha seu rastreamento funcionando.';
+      (umaSo ? '. Pague agora pelo PIX e mantenha seu rastreamento funcionando.' : '. Junte tudo em um só PIX e mantenha seu rastreamento funcionando.');
     $('lista-faturas').innerHTML = r.faturas.map(function (f) {
       var titulo = f.vencida ? 'Venceu em ' + dataBR(f.vencimento) : 'Vence em ' + dataBR(f.vencimento);
       var sub = f.vencida ? f.dias + (f.dias === 1 ? ' dia' : ' dias') + ' de atraso · original ' + brl(f.valor) : 'A vencer · original ' + brl(f.valor);
@@ -303,8 +304,8 @@ textarea{resize:vertical;min-height:80px}
     $('card-conta').innerHTML = '<div class="conta"><div><span>Valor das faturas</span><span>' + brl(r.original) + '</span></div>' +
       '<div><span>Multa e juros</span><span>' + brl(r.encargos) + '</span></div>' +
       '<div class="final"><span>Total</span><span>' + brl(r.valorFinal) + '</span></div></div>' +
-      '<p class="muted" style="margin-top:10px">Tudo em um só PIX, sem precisar pagar boleto por boleto.</p>';
-    $('btn-gerar').textContent = r.acordoGerado ? 'Ver meu PIX' : 'Gerar PIX para quitar tudo';
+      '<p class="muted" style="margin-top:10px">' + (umaSo ? 'Pagamento pelo PIX, confirmado na hora.' : 'Tudo em um só PIX, sem precisar pagar boleto por boleto.') + '</p>';
+    $('btn-gerar').textContent = r.acordoGerado ? 'Ver meu PIX' : (umaSo ? 'Gerar PIX' : 'Gerar PIX para quitar tudo');
   }
 
   $('btn-gerar').addEventListener('click', async function () {
@@ -342,7 +343,7 @@ textarea{resize:vertical;min-height:80px}
   function pagoOk() {
     $('ok-icone').style.background = 'var(--green)';
     $('ok-titulo').textContent = 'Pagamento confirmado!';
-    $('ok-texto').textContent = 'Obrigado! Suas faturas foram quitadas e seu rastreamento segue funcionando normalmente.';
+    $('ok-texto').textContent = 'Obrigado! ' + (S.r && S.r.faturas && S.r.faturas.length === 1 ? 'Sua fatura foi quitada' : 'Suas faturas foram quitadas') + ' e seu rastreamento segue funcionando normalmente.';
     S.sessao = null;
     mostrar('tela-ok', 4);
   }
