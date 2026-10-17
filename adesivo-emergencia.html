@@ -456,7 +456,7 @@ textarea{resize:vertical;min-height:80px}
         corpo = '<div class="aviso ambar"><b>Fora da área de entrega</b>O seu endereço fica a ' + km(r.kmIda) + ' da nossa base. Entregamos até ' + r.maxKm + ' km. Fale com a gente pelo WhatsApp que a gente combina o envio.</div>' +
           '<button type="button" class="btn btn-wpp" id="btn-pedir-wpp">' + WPP_SVG + 'Pedir e combinar pelo WhatsApp</button>';
       } else if (r.semCalculo) {
-        corpo = '<div class="aviso azul"><b>Não consegui calcular a entrega agora</b>Faça o pedido e a gente combina o valor da entrega com você pelo WhatsApp.</div>' +
+        corpo = '<div class="aviso azul"><b>Não consegui calcular a entrega agora</b>Faça o pedido e a gente combina o valor da entrega com você pelo WhatsApp.' + (r.motivo ? '<span style="display:block;margin-top:6px;font-size:.72rem;opacity:.6">código: ' + esc(r.motivo) + '</span>' : '') + '</div>' +
           '<button type="button" class="btn btn-wpp" id="btn-pedir-wpp">' + WPP_SVG + 'Pedir e combinar pelo WhatsApp</button>';
       } else {
         corpo = '<div class="frete-val">' + brl(r.valor) + '</div>' +
