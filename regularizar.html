@@ -121,14 +121,14 @@ textarea{resize:vertical;min-height:80px}
 .linha-fat.sel{align-items:center;gap:12px;margin:0 -10px;padding:12px 10px;border-radius:12px;border-top:0;cursor:pointer;transition:background .15s}
 .linha-fat.sel + .linha-fat.sel{margin-top:8px}
 .linha-fat.sel.venc{background:rgba(224,49,49,.07);cursor:default}
-.linha-fat.sel.on:not(.venc){background:var(--green-dim)}
+.linha-fat.sel.on{background:rgba(224,49,49,.07)} /* 17/10/2026: marcada = mesma tarja levemente vermelha da vencida */
 .linha-fat .ck{flex:none;width:24px;height:24px;border-radius:7px;border:2px solid #b8c0cc;background:#fff;display:flex;align-items:center;justify-content:center;transition:background .15s,border-color .15s}
-.linha-fat.on .ck{background:var(--green);border-color:var(--green)}
+.linha-fat.on .ck{background:var(--danger);border-color:var(--danger)}
 .linha-fat.venc .ck{background:var(--danger);border-color:var(--danger)}
 .linha-fat .ck svg{width:14px;height:14px;fill:none;stroke:#fff;stroke-width:3.2;stroke-linecap:round;stroke-linejoin:round;opacity:0}
 .linha-fat.on .ck svg{opacity:1}
 .linha-fat .fx{flex:1;min-width:0}
-.linha-fat.sel:not(.on) .fv{color:var(--text-3);text-decoration:line-through;text-decoration-thickness:1px}
+.linha-fat.sel:not(.on){background:var(--surface);box-shadow:inset 0 0 0 1.5px var(--border)} /* desmarcada: sem risco (não parece desconto), só sem a tarja */
 .conta{font-size:.9rem}
 .conta div{display:flex;justify-content:space-between;padding:6px 0;color:var(--text-2)}
 .conta .desc{color:#008F64;font-weight:600}
@@ -309,9 +309,9 @@ textarea{resize:vertical;min-height:80px}
       (umaSo ? '. Pague agora pelo PIX e mantenha seu rastreamento funcionando.' : '. Junte tudo em um só PIX e mantenha seu rastreamento funcionando.');
     var temEscolha = nProx > 0 && nVenc > 0 && r.faturas.every(function (f) { return f.k; }); // servidor novo manda a chave de cada fatura
     if (temEscolha) {
-      if (!S.sel) { S.sel = {}; r.faturas.forEach(function (f) { if (f.vencida) S.sel[f.k] = true; }); } // começa só com as vencidas
+      if (!S.sel) { S.sel = {}; r.faturas.forEach(function (f) { S.sel[f.k] = true; }); } // 17/10/2026 (dono): começa com TODAS marcadas; o cliente tira a que ainda não venceu, se quiser
       $('lead-proposta').textContent = 'Encontramos ' + nVenc + (nVenc === 1 ? ' fatura vencida' : ' faturas vencidas') + ' e ' + nProx + (nProx === 1 ? ' que vence em breve' : ' que vencem em breve') +
-        '. Marque a que vence em breve se quiser pagar junto, no mesmo PIX.';
+        '. Já deixamos tudo junto em um só PIX. Se preferir pagar só ' + (nVenc === 1 ? 'a vencida' : 'as vencidas') + ', desmarque a que ainda não venceu.';
     }
     document.querySelector('#tela-proposta .card-titulo').textContent = nProx ? 'Suas faturas' : 'Faturas vencidas';
     var CK = '<span class="ck"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>';
