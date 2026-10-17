@@ -214,9 +214,7 @@ textarea{resize:vertical;min-height:80px}
       <button type="button" class="btn btn-sec btn-grande" id="btn-nao">Não, vou digitar o endereço</button>
     </div>
     <div class="card" id="card-form" hidden>
-      <div class="card-titulo">Quantos adesivos?</div>
-      <div class="seg" id="seg-qtd"><button type="button" data-q="1">1 adesivo</button><button type="button" data-q="2" class="ativo">2 adesivos</button></div>
-      <div class="card-titulo" style="margin-top:20px">Endereço de entrega</div>
+      <div class="card-titulo">Endereço de entrega</div>
       <div class="local ok" id="gps-box" hidden></div>
       <div class="linha so-end">
         <div class="field"><label for="cep">CEP</label><input type="tel" id="cep" inputmode="numeric" autocomplete="postal-code" placeholder="00000-000" maxlength="9"><div class="status-cep" id="cep-st"></div></div>
@@ -350,7 +348,7 @@ textarea{resize:vertical;min-height:80px}
     $('card-pedidos').hidden = !peds.length;
     $('lista-pedidos').innerHTML = peds.map(function (p) {
       var dt = p.em ? new Date(p.em).toLocaleDateString('pt-BR') : '';
-      return '<div class="ped"><div><b>' + esc(p.protocolo) + '</b><div class="muted">' + p.qtd + (p.qtd === 1 ? ' adesivo' : ' adesivos') + (dt ? ' · ' + dt : '') + (p.rastreio ? ' · rastreio ' + esc(p.rastreio) : '') + '</div></div>' +
+      return '<div class="ped"><div><b>' + esc(p.protocolo) + '</b><div class="muted">' + 'Adesivo de emergência' + (dt ? ' · ' + dt : '') + (p.rastreio ? ' · rastreio ' + esc(p.rastreio) : '') + '</div></div>' +
         '<div class="ped-dir"><span class="st ' + esc(p.status) + '">' + esc(NOME_ST[p.status] || p.status) + '</span>' +
         (p.status === 'aguardando' && S.sessao ? '<button type="button" class="btn btn-ok btn-verpix" data-verpix="' + esc(p.protocolo) + '" data-qtd="' + (+p.qtd || 1) + '">Ver o PIX</button>' : '') + '</div></div>';
     }).join('');
@@ -360,13 +358,8 @@ textarea{resize:vertical;min-height:80px}
       return;
     }
     voltarPergunta();
-    $('brinde-txt').textContent = r.restante === 1 && peds.length ? 'Você ainda pode pedir 1 adesivo. Grátis: você paga só a entrega, calculada pela distância.' : 'Grátis para clientes: até 2 adesivos. Você paga só a entrega, calculada pela distância até o seu endereço.';
-    S.qtd = Math.min(2, r.restante);
-    var b2 = document.querySelector('#seg-qtd [data-q="2"]'); b2.disabled = r.restante < 2;
-    pintarQtd();
+    $('brinde-txt').textContent = 'Grátis para clientes. Você paga só a entrega, calculada pela distância até o seu endereço.';
   }
-  function pintarQtd() { document.querySelectorAll('#seg-qtd button').forEach(function (b) { b.classList.toggle('ativo', +b.dataset.q === S.qtd); }); }
-  $('seg-qtd').addEventListener('click', function (ev) { var b = ev.target.closest('button'); if (!b || b.disabled) return; S.qtd = +b.dataset.q; pintarQtd(); });
 
   $('cep').addEventListener('input', async function () {
     var d = soDig(this.value).slice(0, 8); this.value = d.length > 5 ? d.slice(0, 5) + '-' + d.slice(5) : d;
@@ -490,7 +483,7 @@ textarea{resize:vertical;min-height:80px}
     var f = conferirForm(); if (!f) return;
     carregando(btn, true, modo === 'pix' ? 'Gerando o PIX...' : 'Enviando pedido...');
     try {
-      var r = await chamar('nfcPedir', { sessao: S.sessao, modo: modo, qtd: S.qtd, endereco: f.e, recebe: f.recebe, whatsapp: f.wpp, gps: S.gps || null });
+      var r = await chamar('nfcPedir', { sessao: S.sessao, modo: modo, endereco: f.e, recebe: f.recebe, whatsapp: f.wpp, gps: S.gps || null });
       S.protocolo = r.protocolo; S.qtdPedida = r.qtd; S.cidade = f.e.cidade + '/' + f.e.uf;
       if (r.pix) mostrarPix(r.pix);
       else { pronto(false); }
@@ -556,17 +549,16 @@ textarea{resize:vertical;min-height:80px}
   $('btn-ja-paguei').addEventListener('click', async function () { var b = this; carregando(b, true, 'Conferindo...'); await conferir(true); carregando(b, false); });
   function pronto(pago) {
     $('ok-prot').textContent = S.protocolo;
-    var q = S.qtdPedida + (S.qtdPedida === 1 ? ' adesivo' : ' adesivos');
     if (pago) {
       document.querySelector('#tela-ok h1').textContent = 'Pagamento confirmado!';
-      $('ok-txt').textContent = 'Recebemos o seu pedido de ' + q + '. A gente vai entregar no endereço informado e avisar pelo WhatsApp quando sair para entrega.';
+      $('ok-txt').textContent = 'Recebemos o seu pedido do adesivo de emergência. A gente vai entregar no endereço informado e avisar pelo WhatsApp quando sair para entrega.';
       $('ok-wpp').innerHTML = WPP_SVG + 'Falar com a gente pelo WhatsApp';
       $('ok-wpp').href = 'https://wa.me/' + WPP + '?text=' + encodeURIComponent('Olá! Paguei a entrega do adesivo de emergência (' + S.protocolo + ').');
     } else {
       document.querySelector('#tela-ok h1').textContent = 'Pedido recebido!';
-      $('ok-txt').textContent = 'Recebemos o seu pedido de ' + q + '. Agora é só combinar a entrega com a gente pelo WhatsApp.';
+      $('ok-txt').textContent = 'Recebemos o seu pedido do adesivo de emergência. Agora é só combinar a entrega com a gente pelo WhatsApp.';
       $('ok-wpp').innerHTML = WPP_SVG + 'Combinar a entrega pelo WhatsApp';
-      $('ok-wpp').href = 'https://wa.me/' + WPP + '?text=' + encodeURIComponent('Olá! Fiz o pedido do adesivo de emergência (' + S.protocolo + ', ' + q + ') e quero combinar a entrega para ' + S.cidade + '.');
+      $('ok-wpp').href = 'https://wa.me/' + WPP + '?text=' + encodeURIComponent('Olá! Fiz o pedido do adesivo de emergência (' + S.protocolo + ') e quero combinar a entrega para ' + S.cidade + '.');
     }
     mostrar('tela-ok', 4);
   }
