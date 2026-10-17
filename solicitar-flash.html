@@ -194,17 +194,17 @@ textarea{resize:vertical;min-height:80px}
   <!-- 1b. BOLETO VENCIDO -->
   <section id="tela-vencido" class="tela">
     <h1 id="venc-ola">Olá</h1>
-    <div class="aviso ambar"><b>Há um boleto vencido no seu cadastro</b><span id="venc-txt">Para pedir o seu adesivo, regularize primeiro. É rápido: dá para pagar tudo em um só PIX.</span></div>
+    <div class="aviso ambar"><b>Há um boleto vencido no seu cadastro</b><span id="venc-txt">Para pedir a sua entrega, regularize primeiro. É rápido: dá para pagar tudo em um só PIX.</span></div>
     <a class="btn btn-ok" href="https://app.rastreandogpsbr.com.br/regularizar.html" style="text-decoration:none">Regularizar agora</a>
-    <p class="muted" style="text-align:center;margin-top:12px">Depois de pago, volte aqui e peça o seu adesivo.</p>
+    <p class="muted" style="text-align:center;margin-top:12px">Depois de pago, volte aqui e peça a sua entrega.</p>
     <button type="button" class="btn-link" data-recomecar style="display:block;margin:10px auto 0">Consultar outro CPF</button>
   </section>
 
   <!-- 2. ENTREGA -->
   <section id="tela-entrega" class="tela">
     <h1 id="ola">Olá</h1>
-    <div class="card"><div class="brinde"><div class="ic"><svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="3"/><path d="M9 9a4 4 0 0 1 0 6M12 7a7 7 0 0 1 0 10"/></svg></div>
-      <div><b>Adesivo de emergência</b><p id="brinde-txt">Grátis para clientes. Você paga só a entrega, calculada pela distância até o seu endereço.</p></div></div></div>
+    <div class="card"><div class="brinde"><div class="ic"><svg viewBox="0 0 24 24"><path d="M13 2 4 14h7l-1 8 9-12h-7l1-8z"/></svg></div>
+      <div><b>Sua entrega</b><p id="brinde-txt">Você paga só a entrega, calculada pela distância até o seu endereço.</p></div></div></div>
     <div class="card" id="card-pedidos" hidden><div class="card-titulo">Seus pedidos</div><div id="lista-pedidos"></div></div>
     <div class="card pergunta" id="card-pergunta">
       <div class="pin-grande"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg></div>
@@ -332,7 +332,7 @@ textarea{resize:vertical;min-height:80px}
       S.r = r; S.sessao = r.sessao || null;
       if (r.vencido) {
         $('venc-ola').textContent = 'Olá, ' + (r.nome || 'cliente');
-        $('venc-txt').textContent = 'Para pedir o seu adesivo, regularize primeiro' + (r.qtdVencidos > 1 ? ' (' + r.qtdVencidos + ' boletos vencidos)' : '') + '. É rápido: dá para pagar tudo em um só PIX.';
+        $('venc-txt').textContent = 'Para pedir a sua entrega, regularize primeiro' + (r.qtdVencidos > 1 ? ' (' + r.qtdVencidos + ' boletos vencidos)' : '') + '. É rápido: dá para pagar tudo em um só PIX.';
         mostrar('tela-vencido', 1); return;
       }
       montarEntrega(); mostrar('tela-entrega', 2);
@@ -348,7 +348,7 @@ textarea{resize:vertical;min-height:80px}
     $('card-pedidos').hidden = !peds.length;
     $('lista-pedidos').innerHTML = peds.map(function (p) {
       var dt = p.em ? new Date(p.em).toLocaleDateString('pt-BR') : '';
-      return '<div class="ped"><div><b>' + esc(p.protocolo) + '</b><div class="muted">' + 'Adesivo de emergência' + (dt ? ' · ' + dt : '') + (p.rastreio ? ' · rastreio ' + esc(p.rastreio) : '') + '</div></div>' +
+      return '<div class="ped"><div><b>' + esc(p.protocolo) + '</b><div class="muted">' + 'Entrega' + (dt ? ' · ' + dt : '') + (p.rastreio ? ' · rastreio ' + esc(p.rastreio) : '') + '</div></div>' +
         '<div class="ped-dir"><span class="st ' + esc(p.status) + '">' + esc(NOME_ST[p.status] || p.status) + '</span>' +
         (p.status === 'aguardando' && S.sessao ? '<button type="button" class="btn btn-ok btn-verpix" data-verpix="' + esc(p.protocolo) + '" data-qtd="' + (+p.qtd || 1) + '">Ver o PIX</button>' : '') + '</div></div>';
     }).join('');
@@ -358,7 +358,7 @@ textarea{resize:vertical;min-height:80px}
       return;
     }
     voltarPergunta();
-    $('brinde-txt').textContent = 'Grátis para clientes. Você paga só a entrega, calculada pela distância até o seu endereço.';
+    $('brinde-txt').textContent = 'Você paga só a entrega, calculada pela distância até o seu endereço.';
   }
 
   $('cep').addEventListener('input', async function () {
@@ -551,14 +551,14 @@ textarea{resize:vertical;min-height:80px}
     $('ok-prot').textContent = S.protocolo;
     if (pago) {
       document.querySelector('#tela-ok h1').textContent = 'Pagamento confirmado!';
-      $('ok-txt').textContent = 'Recebemos o seu pedido do adesivo de emergência. A gente vai entregar no endereço informado e avisar pelo WhatsApp quando sair para entrega.';
+      $('ok-txt').textContent = 'Recebemos o seu pedido. A gente vai entregar no endereço informado e avisar pelo WhatsApp quando sair para entrega.';
       $('ok-wpp').innerHTML = WPP_SVG + 'Falar com a gente pelo WhatsApp';
-      $('ok-wpp').href = 'https://wa.me/' + WPP + '?text=' + encodeURIComponent('Olá! Paguei a entrega do adesivo de emergência (' + S.protocolo + ').');
+      $('ok-wpp').href = 'https://wa.me/' + WPP + '?text=' + encodeURIComponent('Olá! Paguei a entrega da Rastreando Flash (' + S.protocolo + ').');
     } else {
       document.querySelector('#tela-ok h1').textContent = 'Pedido recebido!';
-      $('ok-txt').textContent = 'Recebemos o seu pedido do adesivo de emergência. Agora é só combinar a entrega com a gente pelo WhatsApp.';
+      $('ok-txt').textContent = 'Recebemos o seu pedido. Agora é só combinar a entrega com a gente pelo WhatsApp.';
       $('ok-wpp').innerHTML = WPP_SVG + 'Combinar a entrega pelo WhatsApp';
-      $('ok-wpp').href = 'https://wa.me/' + WPP + '?text=' + encodeURIComponent('Olá! Fiz o pedido do adesivo de emergência (' + S.protocolo + ') e quero combinar a entrega para ' + S.cidade + '.');
+      $('ok-wpp').href = 'https://wa.me/' + WPP + '?text=' + encodeURIComponent('Olá! Fiz um pedido na Rastreando Flash (' + S.protocolo + ') e quero combinar a entrega para ' + S.cidade + '.');
     }
     mostrar('tela-ok', 4);
   }
