@@ -117,6 +117,18 @@ textarea{resize:vertical;min-height:80px}
 .linha-fat{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;padding:11px 0;border-top:1px solid var(--border);font-size:.9rem}
 .linha-fat:first-of-type{border-top:none;padding-top:0}
 .linha-fat .muted{margin-top:2px}
+/* 17/10/2026 (pedido do dono): caixinha em cada fatura. A vencida entra sempre (fundo levemente vermelho); a que vence em breve o cliente escolhe. */
+.linha-fat.sel{align-items:center;gap:12px;margin:0 -10px;padding:12px 10px;border-radius:12px;border-top:0;cursor:pointer;transition:background .15s}
+.linha-fat.sel + .linha-fat.sel{margin-top:8px}
+.linha-fat.sel.venc{background:rgba(224,49,49,.07);cursor:default}
+.linha-fat.sel.on:not(.venc){background:var(--green-dim)}
+.linha-fat .ck{flex:none;width:24px;height:24px;border-radius:7px;border:2px solid #b8c0cc;background:#fff;display:flex;align-items:center;justify-content:center;transition:background .15s,border-color .15s}
+.linha-fat.on .ck{background:var(--green);border-color:var(--green)}
+.linha-fat.venc .ck{background:var(--danger);border-color:var(--danger)}
+.linha-fat .ck svg{width:14px;height:14px;fill:none;stroke:#fff;stroke-width:3.2;stroke-linecap:round;stroke-linejoin:round;opacity:0}
+.linha-fat.on .ck svg{opacity:1}
+.linha-fat .fx{flex:1;min-width:0}
+.linha-fat.sel:not(.on) .fv{color:var(--text-3);text-decoration:line-through;text-decoration-thickness:1px}
 .conta{font-size:.9rem}
 .conta div{display:flex;justify-content:space-between;padding:6px 0;color:var(--text-2)}
 .conta .desc{color:#008F64;font-weight:600}
@@ -242,7 +254,7 @@ textarea{resize:vertical;min-height:80px}
     if (e && (e.status === 'DEADLINE_EXCEEDED' || e.status === 'FAILED_PRECONDITION')) { toast(e.message, 'aviso'); recomecar(); return; }
     toast((e && e.message) || 'Erro inesperado.', 'erro');
   }
-  function recomecar() { S = { sessao: null, r: null }; $('cpf').value = ''; $('cpf-erro').textContent = ''; mostrar('tela-cpf', 1); }
+  function recomecar() { S = { sessao: null, r: null, sel: null }; $('cpf').value = ''; $('cpf-erro').textContent = ''; mostrar('tela-cpf', 1); }
   document.querySelectorAll('[data-recomecar]').forEach(function (b) { b.addEventListener('click', recomecar); });
 
   function cpfValido(c) {
@@ -271,7 +283,7 @@ textarea{resize:vertical;min-height:80px}
     try {
       var res = await chamar('divida_consultar', { cpf: d });
       if (!res.elegivel) { mostrarSemAcordo(res); return; }
-      S.sessao = res.sessao; S.r = res; renderProposta(); mostrar('tela-proposta', 2);
+      S.sessao = res.sessao; S.r = res; S.sel = null; renderProposta(); mostrar('tela-proposta', 2);
     } catch (e) { tratarErro(e); }
     finally { carregando(btn, false); }
   });
@@ -295,23 +307,50 @@ textarea{resize:vertical;min-height:80px}
     $('lead-proposta').textContent = 'Encontramos ' + nVenc + (nVenc === 1 ? ' fatura vencida' : ' faturas vencidas') +
       (nProx ? ' e ' + nProx + (nProx === 1 ? ' que vence em breve' : ' que vencem em breve') : '') +
       (umaSo ? '. Pague agora pelo PIX e mantenha seu rastreamento funcionando.' : '. Junte tudo em um só PIX e mantenha seu rastreamento funcionando.');
+    var temEscolha = nProx > 0 && nVenc > 0 && r.faturas.every(function (f) { return f.k; }); // servidor novo manda a chave de cada fatura
+    if (temEscolha) {
+      if (!S.sel) { S.sel = {}; r.faturas.forEach(function (f) { if (f.vencida) S.sel[f.k] = true; }); } // começa só com as vencidas
+      $('lead-proposta').textContent = 'Encontramos ' + nVenc + (nVenc === 1 ? ' fatura vencida' : ' faturas vencidas') + ' e ' + nProx + (nProx === 1 ? ' que vence em breve' : ' que vencem em breve') +
+        '. Marque a que vence em breve se quiser pagar junto, no mesmo PIX.';
+    }
+    document.querySelector('#tela-proposta .card-titulo').textContent = nProx ? 'Suas faturas' : 'Faturas vencidas';
+    var CK = '<span class="ck"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>';
     $('lista-faturas').innerHTML = r.faturas.map(function (f) {
       var titulo = f.vencida ? 'Venceu em ' + dataBR(f.vencimento) : 'Vence em ' + dataBR(f.vencimento);
       var sub = f.vencida ? f.dias + (f.dias === 1 ? ' dia' : ' dias') + ' de atraso · original ' + brl(f.valor) : 'A vencer · original ' + brl(f.valor);
-      return '<div class="linha-fat"><div><div>' + titulo + '</div><div class="muted">' + sub + '</div></div>' +
+      if (!temEscolha) return '<div class="linha-fat"><div><div>' + titulo + '</div><div class="muted">' + sub + '</div></div>' +
         '<div style="font-weight:700;white-space:nowrap">' + brl(f.atualizado) + '</div></div>';
+      var on = f.vencida || !!S.sel[f.k];
+      return '<div class="linha-fat sel' + (f.vencida ? ' venc' : '') + (on ? ' on' : '') + '" data-k="' + esc(f.k) + '"' + (f.vencida ? ' title="A fatura vencida entra sempre"' : ' role="checkbox" tabindex="0" aria-checked="' + on + '"') + '>' +
+        CK + '<div class="fx"><div>' + titulo + '</div><div class="muted">' + sub + (f.vencida ? ' · entra sempre' : '') + '</div></div>' +
+        '<div class="fv" style="font-weight:700;white-space:nowrap">' + brl(f.atualizado) + '</div></div>';
     }).join('');
-    $('card-conta').innerHTML = '<div class="conta"><div><span>Valor das faturas</span><span>' + brl(r.original) + '</span></div>' +
-      '<div><span>Multa e juros</span><span>' + brl(r.encargos) + '</span></div>' +
-      '<div class="final"><span>Total</span><span>' + brl(r.valorFinal) + '</span></div></div>' +
-      '<p class="muted" style="margin-top:10px">' + (umaSo ? 'Pagamento pelo PIX, confirmado na hora.' : 'Tudo em um só PIX, sem precisar pagar boleto por boleto.') + '</p>';
-    $('btn-gerar').textContent = r.acordoGerado ? 'Ver meu PIX' : (umaSo ? 'Gerar PIX' : 'Gerar PIX para quitar tudo');
+    var lista = temEscolha ? r.faturas.filter(function (f) { return f.vencida || S.sel[f.k]; }) : r.faturas;
+    var orig = temEscolha ? lista.reduce(function (t, f) { return t + Number(f.valor || 0); }, 0) : r.original;
+    var tot = temEscolha ? lista.reduce(function (t, f) { return t + Number(f.atualizado || 0); }, 0) : r.valorFinal;
+    var enc = temEscolha ? Math.max(0, tot - orig) : r.encargos;
+    var juntas = lista.length > 1;
+    $('card-conta').innerHTML = '<div class="conta"><div><span>Valor ' + (juntas ? 'das faturas' : 'da fatura') + '</span><span>' + brl(orig) + '</span></div>' +
+      '<div><span>Multa e juros</span><span>' + brl(enc) + '</span></div>' +
+      '<div class="final"><span>Total</span><span>' + brl(tot) + '</span></div></div>' +
+      '<p class="muted" style="margin-top:10px">' + (!juntas ? 'Pagamento pelo PIX, confirmado na hora.' : 'Tudo em um só PIX, sem precisar pagar boleto por boleto.') + '</p>';
+    $('btn-gerar').textContent = r.acordoGerado && !temEscolha ? 'Ver meu PIX' : (!juntas ? 'Gerar PIX' : (temEscolha ? 'Gerar PIX das ' + lista.length + ' faturas' : 'Gerar PIX para quitar tudo'));
   }
+  $('lista-faturas').addEventListener('click', function (ev) {
+    var el = ev.target.closest('.linha-fat.sel'); if (!el || el.classList.contains('venc') || !S.sel) return;
+    var k = el.getAttribute('data-k'); S.sel[k] = !S.sel[k]; renderProposta();
+  });
+  $('lista-faturas').addEventListener('keydown', function (ev) {
+    if (ev.key !== ' ' && ev.key !== 'Enter') return; var el = ev.target.closest('.linha-fat.sel'); if (!el || el.classList.contains('venc')) return;
+    ev.preventDefault(); el.click();
+  });
 
   $('btn-gerar').addEventListener('click', async function () {
     var btn = this; carregando(btn, true, 'Gerando PIX...');
     try {
-      var p = await chamar('divida_pix', { sessao: S.sessao });
+      var dados = { sessao: S.sessao };
+      if (S.sel) dados.sel = Object.keys(S.sel).filter(function (k) { return S.sel[k]; }); // 17/10/2026: só as marcadas (as vencidas entram sempre)
+      var p = await chamar('divida_pix', dados);
       if (p.pago) { pagoOk(); return; }
       $('pix-valor').textContent = brl(p.valor);
       var img = /^[A-Za-z0-9+/=]+$/.test(p.imagem || '') ? '<img alt="QR Code PIX" src="data:image/png;base64,' + p.imagem + '">' : '';
