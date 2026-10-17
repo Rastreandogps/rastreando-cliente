@@ -97,6 +97,23 @@ textarea{resize:vertical;min-height:80px}
 .veic .f-mod{flex:1.6} .veic .f-pla{flex:1}
 .veic .rm{flex:0 0 42px;height:46px;border:1.5px solid var(--border);border-radius:var(--radius-sm);background:#fff;color:var(--danger);font-size:1.1rem;cursor:pointer}
 .status-cep{font-size:.75rem;color:var(--text-3);margin-top:5px;min-height:1em}
+.pergunta{text-align:center}
+.pergunta h2{font-family:var(--font-display);color:var(--navy);font-size:1.25rem;line-height:1.3;margin:6px 0 8px}
+.pergunta p{margin:0 0 18px}
+.pin-grande{width:64px;height:64px;border-radius:50%;background:var(--green-dim);color:#00936A;display:flex;align-items:center;justify-content:center;margin:2px auto 8px}
+.pin-grande svg{width:34px;height:34px}
+.btn-grande{padding:18px;font-size:1.05rem;margin-top:10px}
+#card-form.modo-gps .so-end{display:none}
+.trocar[hidden]{display:none!important}
+.trocar{display:block;margin:4px auto 0;background:none;border:0;color:var(--navy-light);font-weight:600;font-size:.85rem;cursor:pointer;text-decoration:underline;padding:8px}
+.local{border:1.5px dashed #C9D6EC;border-radius:var(--radius);padding:14px;margin:6px 0 16px;background:#F7FAFE}
+.local p{margin:0 0 10px;font-size:.88rem;line-height:1.45;color:var(--text-2,#3A4660)}
+.local p b{display:block;font-family:var(--font-display);color:var(--navy);font-size:.95rem;margin-bottom:2px}
+.local .btn{margin:0}
+.local.ok{border-style:solid;border-color:rgba(0,179,126,.35);background:var(--green-dim)}
+.local.ok p{color:#006B4B} .local.ok p b{color:#006B4B}
+.local .tirar{background:none;border:0;color:var(--navy-light);font-weight:600;font-size:.82rem;padding:6px 0 0;cursor:pointer;text-decoration:underline}
+.local .pin{display:inline-block;width:18px;height:18px;vertical-align:-3px;margin-right:6px}
 .status-cep.erro,.erro-txt{color:var(--danger)}
 .erro-txt{font-size:.8rem;margin-top:6px;min-height:1em}
 .termo{display:flex;gap:12px;align-items:flex-start;font-size:.88rem;line-height:1.5;color:var(--text-2);cursor:pointer}
@@ -184,20 +201,28 @@ textarea{resize:vertical;min-height:80px}
     <div class="card"><div class="brinde"><div class="ic"><svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="3"/><path d="M9 9a4 4 0 0 1 0 6M12 7a7 7 0 0 1 0 10"/></svg></div>
       <div><b>Adesivo de emergência (NFC)</b><p id="brinde-txt">Grátis para clientes. Você paga só a entrega, calculada pela distância até o seu endereço.</p></div></div></div>
     <div class="card" id="card-pedidos" hidden><div class="card-titulo">Seus pedidos</div><div id="lista-pedidos"></div></div>
-    <div class="card" id="card-form">
+    <div class="card pergunta" id="card-pergunta">
+      <div class="pin-grande"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg></div>
+      <h2>Você está agora no local da entrega?</h2>
+      <p class="muted">Se estiver, a gente usa a localização do seu celular. Fica mais preciso e você quase não precisa digitar.</p>
+      <button type="button" class="btn btn-ok btn-grande" id="btn-sim">Sim, estou no local</button>
+      <button type="button" class="btn btn-sec btn-grande" id="btn-nao">Não, vou digitar o endereço</button>
+    </div>
+    <div class="card" id="card-form" hidden>
       <div class="card-titulo">Quantos adesivos?</div>
       <div class="seg" id="seg-qtd"><button type="button" data-q="1">1 adesivo</button><button type="button" data-q="2" class="ativo">2 adesivos</button></div>
       <div class="card-titulo" style="margin-top:20px">Endereço de entrega</div>
-      <div class="linha">
+      <div class="local ok" id="gps-box" hidden></div>
+      <div class="linha so-end">
         <div class="field"><label for="cep">CEP</label><input type="tel" id="cep" inputmode="numeric" autocomplete="postal-code" placeholder="00000-000" maxlength="9"><div class="status-cep" id="cep-st"></div></div>
         <div class="field w-uf"><label for="uf">UF</label><input type="text" id="uf" maxlength="2" autocomplete="address-level1"></div>
       </div>
-      <div class="field"><label for="rua">Rua</label><input type="text" id="rua" maxlength="120" autocomplete="address-line1"></div>
+      <div class="field so-end"><label for="rua">Rua</label><input type="text" id="rua" maxlength="120" autocomplete="address-line1"></div>
       <div class="linha">
         <div class="field w-num"><label for="numero">Número</label><input type="text" id="numero" maxlength="20" autocomplete="off"></div>
-        <div class="field"><label for="comp">Complemento <span class="opc">(opcional)</span></label><input type="text" id="comp" maxlength="80" autocomplete="address-line2"></div>
+        <div class="field"><label for="comp" id="comp-lbl">Complemento <span class="opc">(opcional)</span></label><input type="text" id="comp" maxlength="80" autocomplete="address-line2"></div>
       </div>
-      <div class="linha">
+      <div class="linha so-end">
         <div class="field"><label for="bairro">Bairro</label><input type="text" id="bairro" maxlength="80"></div>
         <div class="field"><label for="cidade">Cidade</label><input type="text" id="cidade" maxlength="80" autocomplete="address-level2"></div>
       </div>
@@ -205,6 +230,7 @@ textarea{resize:vertical;min-height:80px}
       <div class="field"><label for="wpp">WhatsApp de quem recebe</label><input type="tel" id="wpp" inputmode="numeric" maxlength="16" placeholder="(21) 99999-9999" autocomplete="tel"></div>
       <div class="erro-txt" id="form-erro"></div>
       <button type="button" class="btn btn-pri" id="btn-frete" style="margin-top:6px">Calcular a entrega</button>
+      <button type="button" class="trocar" id="btn-trocar">Voltar: estou no local da entrega?</button>
     </div>
     <div class="card" id="card-frete" hidden>
       <div class="card-titulo">Entrega</div>
@@ -278,7 +304,7 @@ textarea{resize:vertical;min-height:80px}
   function cnpjValido(c) { if (!/^\d{14}$/.test(c) || /^(\d)\1+$/.test(c)) return false;
     function calc(n) { var p = n === 12 ? [5,4,3,2,9,8,7,6,5,4,3,2] : [6,5,4,3,2,9,8,7,6,5,4,3,2]; var s = 0; for (var i = 0; i < n; i++) s += Number(c[i]) * p[i]; var r = s % 11; return r < 2 ? 0 : 11 - r; }
     return calc(12) === Number(c[12]) && calc(13) === Number(c[13]); }
-  function recomecar() { pixParar(); S = { sessao: null, r: null, qtd: 2 }; $('card-frete').hidden = true; $('cpf').value = ''; $('cpf-erro').textContent = ''; mostrar('tela-cpf', 1); }
+  function recomecar() { pixParar(); S = { sessao: null, r: null, qtd: 2 }; voltarPergunta(); $('card-frete').hidden = true; $('cpf').value = ''; $('cpf-erro').textContent = ''; mostrar('tela-cpf', 1); }
   document.querySelectorAll('[data-recomecar]').forEach(function (b) { b.addEventListener('click', recomecar); });
 
   $('cpf').addEventListener('input', function () {
@@ -318,11 +344,11 @@ textarea{resize:vertical;min-height:80px}
         '<span class="st ' + esc(p.status) + '">' + esc(NOME_ST[p.status] || p.status) + '</span></div>';
     }).join('');
     if (!r.restante) {
-      $('card-form').hidden = true;
+      $('card-form').hidden = true; $('card-pergunta').hidden = true;
       $('brinde-txt').textContent = 'Você já pediu os seus 2 adesivos. Acompanhe a situação abaixo. Dúvidas? Fale com a gente pelo WhatsApp.';
       return;
     }
-    $('card-form').hidden = false;
+    voltarPergunta();
     $('brinde-txt').textContent = r.restante === 1 && peds.length ? 'Você ainda pode pedir 1 adesivo. Grátis: você paga só a entrega, calculada pela distância.' : 'Grátis para clientes: até 2 adesivos. Você paga só a entrega, calculada pela distância até o seu endereço.';
     S.qtd = Math.min(2, r.restante);
     var b2 = document.querySelector('#seg-qtd [data-q="2"]'); b2.disabled = r.restante < 2;
@@ -348,12 +374,66 @@ textarea{resize:vertical;min-height:80px}
     this.value = d.length > 10 ? '(' + d.slice(0, 2) + ') ' + d.slice(2, 7) + '-' + d.slice(7) : d.length > 6 ? '(' + d.slice(0, 2) + ') ' + d.slice(2, 6) + '-' + d.slice(6) : d.length > 2 ? '(' + d.slice(0, 2) + ') ' + d.slice(2) : d;
   });
 
+  /* 17/10/2026: logo depois do CPF pergunta "você está no local da entrega?"; Sim = localização do celular */
+  var PREC_MAX = 500, PIN = '<svg class="pin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>';
+  function freteInvalidar() { if (!$('card-frete').hidden) { $('card-frete').hidden = true; S.frete = null; } }
+  function abrirForm(gps) {
+    S.gps = gps || null; freteInvalidar();
+    $('card-pergunta').hidden = true; $('card-form').hidden = false;
+    $('card-form').classList.toggle('modo-gps', !!gps);
+    $('gps-box').hidden = !gps;
+    $('comp').placeholder = gps ? 'Ex.: portão azul' : ''; $('btn-trocar').hidden = !!gps;
+    if (gps) {
+      var e = lerEndereco(), linha = [e.rua, e.bairro, e.cidade && e.cidade + (e.uf ? '/' + e.uf : '')].filter(Boolean).join(' · ');
+      $('gps-box').innerHTML = '<p><b>' + PIN + 'Localização recebida</b>' + (linha ? esc(linha) + '<br>' : '') + 'Precisão de cerca de ' + gps.prec + ' m. Agora é só informar o número da casa.</p>' +
+        '<button type="button" class="tirar" data-x="editar">Corrigir o endereço</button> · <button type="button" class="tirar" data-x="voltar">Não estou no local</button>';
+      setTimeout(function () { $('numero').focus(); }, 80);
+    }
+    $('card-form').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+  function voltarPergunta() { S.gps = null; freteInvalidar(); $('card-form').hidden = true; $('gps-box').hidden = true; $('card-pergunta').hidden = false; }
+  async function preencherPorLocal(g) {
+    try {
+      var r = await fetch('https://nominatim.openstreetmap.org/reverse?format=json&addressdetails=1&zoom=18&accept-language=pt-BR&lat=' + g.lat + '&lon=' + g.lon);
+      var a = ((await r.json()) || {}).address || {};
+      var UFS = { 'Rio de Janeiro': 'RJ', 'São Paulo': 'SP', 'Minas Gerais': 'MG', 'Espírito Santo': 'ES' };
+      var cep = soDig(a.postcode), uf = (String(a['ISO3166-2-lvl4'] || '').split('-')[1]) || UFS[a.state] || '';
+      $('rua').value = a.road || ''; $('numero').value = a.house_number || '';
+      $('bairro').value = a.suburb || a.neighbourhood || a.quarter || a.city_district || '';
+      $('cidade').value = a.city || a.town || a.village || a.municipality || ''; $('uf').value = uf;
+      $('cep').value = cep.length === 8 ? cep.slice(0, 5) + '-' + cep.slice(5) : '';
+    } catch (e) { /* sem o endereço automático: a localização já basta */ }
+  }
+  $('btn-trocar').addEventListener('click', voltarPergunta);
+  $('btn-nao').addEventListener('click', function () { abrirForm(null); });
+  $('btn-sim').addEventListener('click', function () {
+    if (!navigator.geolocation) { toast('Este celular não permite pegar a localização. Digite o endereço.', 'aviso'); abrirForm(null); return; }
+    var b = this; carregando(b, true, 'Pegando a sua localização...');
+    navigator.geolocation.getCurrentPosition(async function (pos) {
+      var g = { lat: pos.coords.latitude, lon: pos.coords.longitude, prec: Math.max(1, Math.round(pos.coords.accuracy || 9999)) };
+      if (g.prec > PREC_MAX) { carregando(b, false); toast('A localização veio imprecisa (cerca de ' + g.prec + ' m). Vá para perto de uma janela e toque em "Sim" de novo, ou digite o endereço.', 'aviso'); return; }
+      ['cep', 'rua', 'numero', 'comp', 'bairro', 'cidade', 'uf'].forEach(function (id) { $(id).value = ''; }); $('cep-st').textContent = '';
+      await preencherPorLocal(g);
+      carregando(b, false); abrirForm(g);
+    }, function (err) {
+      carregando(b, false);
+      toast(err && err.code === 1 ? 'Você não permitiu a localização. Sem problema: digite o endereço.' : 'Não consegui pegar a localização agora. Digite o endereço.', 'aviso');
+      abrirForm(null);
+    }, { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 });
+  });
+  $('gps-box').addEventListener('click', function (ev) {
+    var b = ev.target.closest('[data-x]'); if (!b) return;
+    if (b.dataset.x === 'voltar') voltarPergunta();
+    if (b.dataset.x === 'editar') { $('card-form').classList.remove('modo-gps'); b.remove(); $('rua').focus(); } // continua usando a localização para o frete
+  });
+
   function lerEndereco() {
     return { cep: soDig($('cep').value), rua: $('rua').value.trim(), numero: $('numero').value.trim(), complemento: $('comp').value.trim(), bairro: $('bairro').value.trim(), cidade: $('cidade').value.trim(), uf: $('uf').value.trim().toUpperCase() };
   }
   function conferirForm() {
     var e = lerEndereco(), recebe = $('recebe').value.trim(), wpp = soDig($('wpp').value), erro = '';
-    if (e.cep.length !== 8) erro = 'Informe o CEP.';
+    if (S.gps) { /* com a localização, o endereço é só ajuda para o entregador */ }
+    else if (e.cep.length !== 8) erro = 'Informe o CEP.';
     else if (e.rua.length < 3 || !e.numero || e.bairro.length < 2 || e.cidade.length < 2 || !/^[A-Z]{2}$/.test(e.uf)) erro = 'Preencha rua, número, bairro, cidade e UF.';
     else if (recebe.length < 3) erro = 'Informe o nome de quem vai receber.';
     else if (!(wpp.length === 10 || wpp.length === 11)) erro = 'Informe um WhatsApp com DDD.';
@@ -369,7 +449,7 @@ textarea{resize:vertical;min-height:80px}
     var f = conferirForm(); if (!f) return;
     var btn = this; carregando(btn, true, 'Calculando a entrega...');
     try {
-      var r = await chamar('nfcFrete', { sessao: S.sessao, endereco: f.e });
+      var r = await chamar('nfcFrete', { sessao: S.sessao, endereco: f.e, gps: S.gps || null });
       S.frete = r; S.form = f;
       var corpo = '';
       if (r.foraArea) {
@@ -380,7 +460,7 @@ textarea{resize:vertical;min-height:80px}
           '<button type="button" class="btn btn-wpp" id="btn-pedir-wpp">' + WPP_SVG + 'Pedir e combinar pelo WhatsApp</button>';
       } else {
         corpo = '<div class="frete-val">' + brl(r.valor) + '</div>' +
-          '<div class="frete-det">' + km(r.kmIda) + ' até você · ' + km(r.kmTotal) + ' ida e volta<br>' + brl(r.fixo) + ' + ' + km(r.kmTotal) + ' × ' + brl(r.porKm) + (r.aprox ? '<br>Distância aproximada pelo seu bairro/CEP.' : '') + '</div>' +
+          '<div class="frete-det">' + km(r.kmIda) + ' até você · ' + km(r.kmTotal) + ' ida e volta<br>' + brl(r.fixo) + ' + ' + km(r.kmTotal) + ' × ' + brl(r.porKm) + (r.gps ? '<br>Distância calculada pela sua localização.' : r.aprox ? '<br>Distância aproximada pelo seu bairro/CEP.' : '') + '</div>' +
           '<button type="button" class="btn btn-ok" id="btn-gerar-pix" style="margin-top:14px">Gerar PIX de ' + brl(r.valor) + '</button>';
       }
       $('frete-corpo').innerHTML = corpo; $('card-frete').hidden = false;
@@ -399,7 +479,7 @@ textarea{resize:vertical;min-height:80px}
     var f = conferirForm(); if (!f) return;
     carregando(btn, true, modo === 'pix' ? 'Gerando o PIX...' : 'Enviando pedido...');
     try {
-      var r = await chamar('nfcPedir', { sessao: S.sessao, modo: modo, qtd: S.qtd, endereco: f.e, recebe: f.recebe, whatsapp: f.wpp });
+      var r = await chamar('nfcPedir', { sessao: S.sessao, modo: modo, qtd: S.qtd, endereco: f.e, recebe: f.recebe, whatsapp: f.wpp, gps: S.gps || null });
       S.protocolo = r.protocolo; S.qtdPedida = r.qtd; S.cidade = f.e.cidade + '/' + f.e.uf;
       if (r.pix) {
         $('pix-valor').textContent = brl(r.pix.valor);
