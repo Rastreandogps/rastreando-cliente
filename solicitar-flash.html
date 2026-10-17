@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Rastreando Flash — Solicitar entrega</title>
-<meta name="description" content="Peça o seu adesivo de emergência (NFC) da Rastreando GPS.">
+<meta name="description" content="Rastreando Flash: entregas da Rastreando GPS.">
 <meta name="theme-color" content="#1B3A6B">
 <meta name="robots" content="noindex, nofollow">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -204,7 +204,7 @@ textarea{resize:vertical;min-height:80px}
   <section id="tela-entrega" class="tela">
     <h1 id="ola">Olá</h1>
     <div class="card"><div class="brinde"><div class="ic"><svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="3"/><path d="M9 9a4 4 0 0 1 0 6M12 7a7 7 0 0 1 0 10"/></svg></div>
-      <div><b>Adesivo de emergência (NFC)</b><p id="brinde-txt">Grátis para clientes. Você paga só a entrega, calculada pela distância até o seu endereço.</p></div></div></div>
+      <div><b>Adesivo de emergência</b><p id="brinde-txt">Grátis para clientes. Você paga só a entrega, calculada pela distância até o seu endereço.</p></div></div></div>
     <div class="card" id="card-pedidos" hidden><div class="card-titulo">Seus pedidos</div><div id="lista-pedidos"></div></div>
     <div class="card pergunta" id="card-pergunta">
       <div class="pin-grande"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg></div>
@@ -354,7 +354,7 @@ textarea{resize:vertical;min-height:80px}
     }).join('');
     if (!r.restante) {
       $('card-form').hidden = true; $('card-pergunta').hidden = true;
-      $('brinde-txt').textContent = peds.some(function (p) { return p.status === 'aguardando'; }) ? 'Seu pedido está esperando o pagamento da entrega. Toque em "Ver o PIX" para pagar.' : 'Você já pediu os seus 2 adesivos. Acompanhe a situação abaixo. Dúvidas? Fale com a gente pelo WhatsApp.';
+      $('brinde-txt').textContent = peds.some(function (p) { return p.status === 'aguardando'; }) ? 'Seu pedido está esperando o pagamento da entrega. Toque em "Ver o PIX" para pagar.' : 'Você já fez o seu pedido. Acompanhe a situação abaixo. Dúvidas? Fale com a gente pelo WhatsApp.';
       return;
     }
     voltarPergunta();
