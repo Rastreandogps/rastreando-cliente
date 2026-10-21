@@ -43,7 +43,9 @@ body{font-family:var(--font-body);background:var(--bg);color:var(--text);min-hei
 .indicado span{font-size:1.4rem;line-height:1}
 h1{font-family:var(--font-display);font-size:1.5rem;line-height:1.25;color:var(--navy);margin-bottom:8px}
 .lead{color:var(--text-2);font-size:.98rem;line-height:1.55;margin-bottom:16px}
-.video{position:relative;width:100%;aspect-ratio:16/9;background:#0b1220;border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);margin-bottom:18px}
+.video{position:relative;width:100%;aspect-ratio:16/9;margin-left:auto;margin-right:auto;background:#0b1220;border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);margin-bottom:18px}
+/* 21/10/2026: vídeo em pé (celular) -> quadro em pé, sem as faixas pretas dos lados; cabe na tela sem rolar */
+.video.empe{aspect-ratio:9/16;width:min(100%,calc(54vh * 9 / 16));width:min(100%,calc(54dvh * 9 / 16))}
 .video iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
 .video .semvideo{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,.7);font-size:.9rem;text-align:center;padding:20px}
 .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px;box-shadow:var(--shadow);margin-bottom:16px}
@@ -73,7 +75,7 @@ h1{font-family:var(--font-display);font-size:1.5rem;line-height:1.25;color:var(-
   <div class="indicado" id="indicado"><span aria-hidden="true">🎁</span><div id="indicadoTxt">Você foi indicado por um amigo!</div></div>
 
   <h1>Veja como funciona em 1 minuto</h1>
-  <p class="lead">Assista ao vídeo e entenda como a Rastreando GPS protege o seu veículo. Depois é só agendar a instalação.</p>
+  <p class="lead">Assista e entenda como a Rastreando GPS protege o seu veículo.</p>
 
   <div class="video" id="video"><div class="semvideo">Carregando o vídeo…</div></div>
 
@@ -98,6 +100,7 @@ h1{font-family:var(--font-display);font-size:1.5rem;line-height:1.25;color:var(-
      VIMEO: o link do vídeo no Vimeo (ex.: https://vimeo.com/123456789 ou https://vimeo.com/123456789/abcdef1234).
      Vazio = a página aparece sem o vídeo (o resto funciona). */
   var VIMEO = 'https://vimeo.com/1238128315';
+  var EM_PE = true; /* o vídeo foi gravado em pé (vertical). Vídeo deitado: false */
   var WPP = '5521980886087'; /* WhatsApp de atendimento da Rastreando GPS */
   var FN = 'https://southamerica-east1-rastreando-assinaturas.cloudfunctions.net/cancelamento';
 
@@ -132,6 +135,7 @@ h1{font-family:var(--font-display);font-size:1.5rem;line-height:1.25;color:var(-
     var v = /vimeo\.com\/(?:video\/)?(\d+)(?:\/([0-9a-f]+))?/i.exec(VIMEO || '');
     var box = $('video');
     if (!v) { box.style.display = 'none'; return; }
+    if (EM_PE) box.classList.add('empe');
     var src = 'https://player.vimeo.com/video/' + v[1] + '?' + (v[2] ? 'h=' + v[2] + '&' : '') + 'title=0&byline=0&portrait=0&dnt=1&playsinline=1';
     box.innerHTML = '<iframe src="' + src + '" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen title="Como funciona a Rastreando GPS"></iframe>';
   })();
