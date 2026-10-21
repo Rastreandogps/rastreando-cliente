@@ -258,8 +258,10 @@ textarea{resize:vertical;min-height:80px}
       $('aviso-atraso').style.display = r.emAtraso ? 'block' : 'none';
       if (r.emAtraso) $('pagar-atraso').href = 'https://app.rastreandogpsbr.com.br/desbloqueio.html?cpf=' + d;
       $('ola').textContent = 'Olá, ' + (r.primeiroNome || 'cliente') + '!';
-      $('link').value = r.link;
-      var msg = 'Oi! Eu uso o rastreamento da Rastreando GPS e recomendo muito. Agende a sua instalação por aqui: ' + r.link;
+      /* 21/10/2026 (pedido do dono): o link do amigo abre primeiro a página com o vídeo (indicado.html) e de lá vai para o agendamento */
+      var link = r.codigo ? 'https://app.rastreandogpsbr.com.br/indicado.html?ind=' + encodeURIComponent(r.codigo) : r.link;
+      $('link').value = link;
+      var msg = 'Oi! Eu uso o rastreamento da Rastreando GPS e recomendo muito. Veja em 1 minuto como funciona e agende a sua instalação: ' + link;
       $('btn-wpp').href = 'https://wa.me/?text=' + encodeURIComponent(msg);
       $('regra').innerHTML = 'Para cada <b>pessoa</b> que você indicar e instalar o rastreador, você ganha a <b>mensalidade grátis de 1 veículo</b>. O prêmio é por pessoa indicada, mesmo que ela instale mais de um veículo, e vale depois que a instalação for concluída, com o seu cadastro em dia.';
       mostrar('tela-link');
