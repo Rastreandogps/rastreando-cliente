@@ -978,10 +978,15 @@ select.invalid {
     console.warn('[Rastreando GPS] Firebase não iniciou (segue tudo normal pela planilha).', e);
   }
 
-  function avisarPainelNovoAgendamento(payload){
-    try {
-      if (!dbFirestore) return;
-      dbFirestore.collection('agendamentos_pendentes').doc(payload.idPedido).set({
+  // 11/11/2026: no celular, quando o WhatsApp abre o navegador vai para segundo plano e pode cortar a gravação.
+  // O pedido fica guardado no aparelho até o Firestore confirmar; se não confirmou, tenta de novo quando a
+  // pessoa volta para a página (ou abre de novo). Nunca sobrescreve um pedido que já chegou.
+  var PEND_KEY = 'rg_ped_pendentes';
+  function pendLer(){ try { return JSON.parse(localStorage.getItem(PEND_KEY) || '{}') || {}; } catch(e){ return {}; } }
+  function pendGravar(o){ try { localStorage.setItem(PEND_KEY, JSON.stringify(o)); } catch(e){} }
+  function pendTirar(id){ var o = pendLer(); if (o[id]) { delete o[id]; pendGravar(o); } }
+  function docDoPedido(payload){
+    return {
         idPedido: payload.idPedido,
         enviadoEm: payload.enviadoEm,
         nomeCompleto: payload.nomeCompleto,
@@ -995,11 +1000,38 @@ select.invalid {
         horaDesejada: payload.horaDesejada || '',
         lido: false,
         criadoEm: firebase.firestore.FieldValue.serverTimestamp()
-      }).catch(function(e){ console.warn('[Rastreando GPS] Não deu pra avisar o painel em tempo real (sem problema, a planilha já foi salva).', e); });
+      };
+  }
+  function avisarPainelNovoAgendamento(payload){
+    try {
+      if (!dbFirestore) return;
+      var o = pendLer(); o[payload.idPedido] = { p: payload, em: Date.now() }; pendGravar(o);
+      dbFirestore.collection('agendamentos_pendentes').doc(payload.idPedido).set(docDoPedido(payload))
+        .then(function(){ pendTirar(payload.idPedido); })
+        .catch(function(e){ console.warn('[Rastreando GPS] Não deu pra avisar o painel em tempo real (sem problema, a planilha já foi salva).', e); });
     } catch (e) {
       console.warn('[Rastreando GPS] Não deu pra avisar o painel em tempo real (sem problema, a planilha já foi salva).', e);
     }
   }
+  var reenviando = false;
+  function reenviarPendentes(){
+    if (!dbFirestore || reenviando) return;
+    var o = pendLer(), ids = Object.keys(o); if (!ids.length) return;
+    reenviando = true;
+    var feitos = ids.map(function(id){
+      var x = o[id] || {}, idade = Date.now() - Number(x.em || 0);
+      if (!x.p || !(idade < 24 * 3600000)) { pendTirar(id); return Promise.resolve(); } // mais de 1 dia: esquece
+      var ref = dbFirestore.collection('agendamentos_pendentes').doc(id);
+      return dbFirestore.runTransaction(function(t){ return t.get(ref).then(function(d){ if (!d.exists) t.set(ref, docDoPedido(x.p)); }); }) // só grava se ainda não chegou
+        .then(function(){ pendTirar(id); })
+        .catch(function(e){
+          if (e && e.code === 'permission-denied' && idade < 15 * 60000) return ref.set(docDoPedido(x.p)).then(function(){ pendTirar(id); }).catch(function(){}); // sem leitura liberada: grava direto só se for recente
+        });
+    });
+    Promise.all(feitos).then(function(){ reenviando = false; }, function(){ reenviando = false; });
+  }
+  document.addEventListener('visibilitychange', function(){ if (document.visibilityState === 'visible') setTimeout(reenviarPendentes, 800); });
+  setTimeout(reenviarPendentes, 1500);
 
   var nomeInput       = document.getElementById('nomeCompleto');
   var telefoneInput   = document.getElementById('telefone');
@@ -1621,7 +1653,7 @@ select.invalid {
 
     var mensagem = buildWhatsAppMessage(payload);
     var waLink   = 'https://wa.me/' + CONFIG.WHATSAPP_NUMERO + '?text=' + encodeURIComponent(mensagem);
-    var waWindow = window.open(waLink, '_blank');
+    var waWindow = null; // 11/11/2026: o WhatsApp abre DEPOIS de começar as gravações (mesmo toque, sem esperar)
 
     // Indicação: o código do cliente que indicou vai junto, escondido no ponto de referência
     var payloadEnvio = payload;
@@ -1642,15 +1674,20 @@ select.invalid {
     setSending(true);
 
     if(CONFIG.SCRIPT_URL.indexOf('COLOQUE_AQUI') > -1){
+      waWindow = window.open(waLink, '_blank');
       setTimeout(function(){ setSending(false); showSuccess(payload, waWindow); }, 400);
       return;
     }
 
-    fetch(CONFIG.SCRIPT_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify(payloadEnvio)
-    })
+    var corpoPlanilha = JSON.stringify(payloadEnvio), envioPlanilha;
+    try { // keepalive: o celular não corta o envio quando o WhatsApp abre (até 64 KB; navegador que não conhece ignora)
+      envioPlanilha = fetch(CONFIG.SCRIPT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: corpoPlanilha, keepalive: corpoPlanilha.length < 60000 });
+    } catch (e) {
+      envioPlanilha = fetch(CONFIG.SCRIPT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: corpoPlanilha });
+    }
+    waWindow = window.open(waLink, '_blank');
+
+    envioPlanilha
       .then(function(r){ return r.json(); })
       .then(function(data){
         setSending(false);
