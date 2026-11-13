@@ -120,6 +120,7 @@ function perguntar(op){
     var temTexto = op.texto !== false;
     entrada.type = op.tipo || 'text';
     entrada.inputMode = op.modo || (op.tipo === 'tel' ? 'tel' : 'text');
+    if (op.modo === 'tel' && !op.tipo) entrada.type = 'tel'; // celular: teclado de telefone
     if (op.tipo === 'date'){ entrada.min = op.min || ''; } else entrada.removeAttribute('min');
     entrada.maxLength = op.max || 120;
     entrada.placeholder = temTexto ? (op.placeholder || 'Escreva aqui…') : 'Toque numa das opções acima';
@@ -529,7 +530,13 @@ async function conversaIA(pre){
   await bot(esc(q1).replace('nome completo', '<b>nome completo</b>')); HIST.push({ r: 'b', t: q1 });
   var botoes = [];
   while (true){
-    var resp = await perguntar({ botoes: botoes.map(function(x){ return { t: x, v: x, pri: /não sei meu cep|está certo/i.test(x) }; }), placeholder: 'Escreva aqui…', max: 300 }); // 13/11: "Não sei meu CEP" em destaque
+    // 13/11/2026 (dono): pergunta de número abre o teclado numérico (WhatsApp, CPF/CNPJ, CEP, ano)
+    var ult = String((HIST[HIST.length - 1] || {}).t || '').split(/\n\s*\n/).pop().toLowerCase(), modo = 'text', ph = 'Escreva aqui…';
+    if (/whatsapp|telefone|celular/.test(ult) && !/está certo/.test(botoes.join(' ').toLowerCase())) { modo = 'tel'; ph = '(21) 98765-4321'; }
+    else if (/cpf|cnpj/.test(ult)) { modo = 'numeric'; ph = 'Só os números'; }
+    else if (/digite o seu cep|qual (é )?o (seu )?cep|o cep\b/.test(ult) && !/sabe o seu cep/.test(ult)) { modo = 'numeric'; ph = '00000-000'; }
+    else if (/\bano\b/.test(ult) && !/modelo/.test(ult)) { modo = 'numeric'; ph = 'Ex.: 2020'; }
+    var resp = await perguntar({ botoes: botoes.map(function(x){ return { t: x, v: x, pri: /não sei meu cep|está certo/i.test(x) }; }), placeholder: ph, modo: modo, max: 300 }); // 13/11: "Não sei meu CEP" em destaque
     HIST.push({ r: 'u', t: resp });
     var r = await iaPerguntar();
     if (!r) return;
