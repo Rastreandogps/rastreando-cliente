@@ -416,7 +416,7 @@ function resumoHtml(){
   var L = function(k, v){ return '<div class="l"><span class="k">' + k + '</span><span>' + v + '</span></div>'; };
   var h = '<h4>Confira o seu agendamento</h4>' + L('Nome', esc(D.nome)) + L('WhatsApp', esc(D.tel)) + (D.cpf ? L('CPF/CNPJ', esc(fmtCpf(D.cpf))) : '')
     + L('Endereço', esc(D.rua + ', ' + D.numero + ' – ' + D.bairro + ' – ' + D.cidade) + (D.cep ? '<br><span style="color:#8A96AA">CEP ' + esc(D.cep) + '</span>' : ''))
-    + (D.ref ? L('Referência', esc(D.ref)) : '');
+    + (D.ref ? L('Referência', esc(D.ref)) : '') + (D.lat ? L('Localização', '📍 do celular (vai para o técnico)') : '');
   D.veiculos.forEach(function(v, i){
     h += L(D.veiculos.length > 1 ? 'Veículo ' + (i + 1) : 'Veículo', esc(v.modelo + ' (' + v.ano + ')') + (v.placa ? ' · ' + esc(v.placa) : '') + '<br><span style="color:#8A96AA">GNV: ' + (v.gnv === 'sim' ? 'sim' : 'não') + ' · ' + (v.rastreio === 'com' ? 'com bloqueio' : 'sem bloqueio') + '</span>');
   });
@@ -432,6 +432,7 @@ function montarPayload(){
     veiculos: D.veiculos.map(function(v){ return { placa: v.placa, modelo: v.modelo, ano: Number(v.ano), gnv: v.gnv, tipoRastreio: v.rastreio }; })
   };
   var env = JSON.parse(JSON.stringify(p));
+  if (D.lat && D.lon){ var mapa = '📍 https://maps.google.com/?q=' + D.lat + ',' + D.lon; p.pontoReferencia = (p.pontoReferencia + ' ' + mapa).trim(); env.pontoReferencia = (env.pontoReferencia + ' ' + mapa).trim(); } // 13/11: localização do celular
   if (IND.codigo){ env.pontoReferencia = (env.pontoReferencia + ' [IND:' + IND.codigo + ']').trim(); env.indicadoPor = IND.codigo; }
   if (D.cpf){ env.pontoReferencia = (env.pontoReferencia + ' [CPF:' + D.cpf + ']').trim(); env.cpf = D.cpf; }
   return { p: p, env: env };
@@ -507,7 +508,7 @@ function dadosParaD(o){
   D.nome = o.nome || ''; D.tel = o.tel ? fmtTel(o.tel) : ''; D.cpf = o.cpf || ''; D.cep = o.cep ? fmtCep(o.cep) : '';
   D.rua = o.rua || ''; D.numero = o.numero || ''; D.bairro = o.bairro || ''; D.cidade = o.cidade || ''; D.ref = o.ref || '';
   D.veiculos = (o.veiculos || []).map(function(v){ return { placa: v.placa || '', modelo: v.modelo || '', ano: v.ano || '', gnv: v.gnv || 'nao', rastreio: v.rastreio || 'com' }; });
-  D.data = o.data || ''; D.periodo = o.periodo || '';
+  D.data = o.data || ''; D.periodo = o.periodo || ''; D.lat = o.lat; D.lon = o.lon;
 }
 async function iaPerguntar(extraOculto){
   // manda o histórico para o servidor e mostra a resposta; devolve o objeto da IA
@@ -631,6 +632,91 @@ async function quadroVeiculos(n){
   }
   return base;
 }
+/* ---------- 13/11/2026 (Publicação 196, dono): ENDEREÇO — "você está agora no endereço da instalação?"
+   Sim: localização do celular -> endereço já preenchido (confere o número). Não (ou sem localização): quadro com número + CEP. ---------- */
+function pegarPosicao(){
+  return new Promise(function(res){
+    if (!navigator.geolocation) return res({ erro: 'sem' });
+    var feito = false, fim = function(x){ if (!feito){ feito = true; res(x); } };
+    setTimeout(function(){ fim({ erro: 'tempo' }); }, 20000);
+    navigator.geolocation.getCurrentPosition(function(p){ fim({ lat: p.coords.latitude, lon: p.coords.longitude, prec: p.coords.accuracy }); },
+      function(e){ fim({ erro: e && e.code === 1 ? 'negou' : 'falhou' }); }, { enableHighAccuracy: true, timeout: 18000, maximumAge: 0 });
+  });
+}
+function campoEnd(cls, ph, val, extra){ return '<input type="text" class="' + cls + '" placeholder="' + ph + '" value="' + esc(val || '') + '"' + (extra || '') + '>'; }
+function lerEnd(q, exigeCep){
+  var g = function(c){ var i = q.querySelector('input.' + c); return i ? i.value.trim() : null; }, mal = function(c){ var i = q.querySelector('input.' + c); if (i) i.classList.add('mal'); };
+  var o = { numero: g('e-num'), rua: g('e-rua'), bairro: g('e-bai'), cidade: g('e-cid'), cep: g('e-cep') }, erro = '';
+  var semCep = q.querySelector('input.e-semcep'); semCep = semCep ? semCep.checked : !exigeCep;
+  if (!o.numero){ mal('e-num'); erro = 'Preencha o número (ou escreva s/n).'; }
+  if (exigeCep && !semCep && soDig(o.cep).length !== 8){ mal('e-cep'); erro = erro || 'O CEP tem 8 números.'; }
+  if (o.rua !== null && (semCep || !exigeCep) && o.rua.length < 3){ mal('e-rua'); erro = erro || 'Preencha a rua.'; }
+  if (o.bairro !== null && (semCep || !exigeCep) && o.bairro.length < 2){ mal('e-bai'); erro = erro || 'Preencha o bairro.'; }
+  if (o.cidade !== null && (semCep || !exigeCep) && o.cidade.length < 3){ mal('e-cid'); erro = erro || 'Preencha a cidade.'; }
+  o.semCep = semCep;
+  return erro ? { erro: erro } : { v: o };
+}
+function ligarQuadroEnd(){ // máscara do CEP e o "não sei meu CEP" mostrando os campos
+  setTimeout(function(){
+    var q = document.querySelector('.qd'); if (!q) return;
+    var c = q.querySelector('input.e-cep'); if (c){ c.addEventListener('input', function(){ c.value = fmtCep(c.value); c.classList.remove('mal'); }); }
+    var k = q.querySelector('input.e-semcep'), box = q.querySelector('.e-man');
+    if (k && box) k.addEventListener('change', function(){ box.style.display = k.checked ? '' : 'none'; if (c){ c.disabled = k.checked; if (k.checked) c.value = ''; } });
+    q.querySelectorAll('input').forEach(function(i){ i.addEventListener('input', function(){ i.classList.remove('mal'); }); });
+  }, 30);
+}
+async function quadroEndereco(){
+  var E = { cep: '', rua: '', numero: '', bairro: '', cidade: '', lat: null, lon: null };
+  await bot('Você está agora no <b>endereço onde será feita a instalação</b>?');
+  var aqui = await perguntar({ botoes: [{ t: 'Sim, estou no local', v: 'sim', pri: 1 }, { t: 'Não', v: 'nao', neg: 1 }], texto: false });
+  if (aqui === 'sim'){
+    await bot('Toque em <b>Permitir</b> para eu pegar a sua localização 📍');
+    var p = await pegarPosicao(), g = null;
+    if (!p.erro && p.prec <= 150){
+      var dg = digitandoLiga();
+      try { g = await func({ acao: 'agl_geo', t: TOKEN, lat: p.lat, lon: p.lon }); } catch (e) { g = null; }
+      dg.remove();
+    }
+    if (g && g.rua){
+      E.lat = Math.round(p.lat * 1e6) / 1e6; E.lon = Math.round(p.lon * 1e6) / 1e6; E.cep = g.cep ? fmtCep(g.cep) : '';
+      var corpo = '<div class="lin"><b>Rua</b><div class="cps">' + campoEnd('e-rua', 'Rua', g.rua) + '</div></div>'
+        + '<div class="lin"><b>Número (confira) e complemento</b><div class="cps">' + campoEnd('e-num', 'Ex.: 210, casa 2', g.numero, ' maxlength="60"') + '</div></div>'
+        + '<div class="lin"><b>Bairro e cidade</b><div class="cps">' + campoEnd('e-bai', 'Bairro', g.bairro) + campoEnd('e-cid', 'Cidade', g.cidade) + '</div></div>';
+      ligarQuadroEnd();
+      var r1 = await quadro('Confira o endereço', 'Achei pela sua localização. Confira o <b>número</b> e corrija o que precisar.', corpo, function(q){ return lerEnd(q, false); });
+      E.rua = titulo(r1.rua); E.numero = r1.numero; E.bairro = titulo(r1.bairro); E.cidade = titulo(r1.cidade);
+      eu(E.rua + ', ' + E.numero + ' – ' + E.bairro + ' – ' + E.cidade + '\n📍 localização do celular');
+      return E;
+    }
+    await bot(p.erro === 'negou' ? 'Sem problema, vamos pelo número e o CEP.' : 'Não consegui pegar a localização com precisão. Vamos pelo número e o CEP.');
+  }
+  var msgErro = '';
+  while (true){
+    var corpo2 = '<div class="lin"><b>Número da residência e complemento</b><div class="cps">' + campoEnd('e-num', 'Ex.: 210, casa 2', E.numero, ' maxlength="60"') + '</div></div>'
+      + '<div class="lin"><b>CEP</b><div class="cps">' + campoEnd('e-cep', '00000-000', E.cep, ' inputmode="numeric" maxlength="9"') + '</div>'
+      + '<label class="ck"><input type="checkbox" class="e-semcep"> Não sei meu CEP</label></div>'
+      + '<div class="e-man" style="display:none"><div class="lin"><b>Rua</b><div class="cps">' + campoEnd('e-rua', 'Ex.: Rua das Flores', E.rua) + '</div></div>'
+      + '<div class="lin"><b>Bairro e cidade</b><div class="cps">' + campoEnd('e-bai', 'Bairro', E.bairro) + campoEnd('e-cid', 'Cidade', E.cidade || 'Duque de Caxias') + '</div></div></div>';
+    ligarQuadroEnd();
+    var r2 = await quadro('Endereço da instalação', msgErro || 'Coloque o número da residência e o CEP.', corpo2, function(q){ return lerEnd(q, true); });
+    E.numero = r2.numero;
+    if (r2.semCep){ E.cep = ''; E.rua = titulo(r2.rua); E.bairro = titulo(r2.bairro); E.cidade = titulo(r2.cidade); eu(E.rua + ', ' + E.numero + ' – ' + E.bairro + ' – ' + E.cidade); return E; }
+    var dg2 = digitandoLiga(), ach = await buscarCep(soDig(r2.cep)); dg2.remove();
+    if (!ach){ msgErro = '<span style="color:#C53030">Não achei esse CEP. Confira ou marque "Não sei meu CEP".</span>'; E.cep = fmtCep(r2.cep); continue; }
+    E.cep = fmtCep(r2.cep); E.rua = ach.logradouro || ''; E.bairro = ach.bairro || ''; E.cidade = ach.localidade || '';
+    if (!E.rua || !E.bairro){ // CEP geral da cidade: pede rua e bairro
+      ligarQuadroEnd();
+      var r3 = await quadro('Complete o endereço', 'Esse CEP é da cidade toda. Escreva a rua e o bairro.', '<div class="lin"><b>Rua</b><div class="cps">' + campoEnd('e-rua', 'Rua', E.rua) + '</div></div><div class="lin"><b>Bairro</b><div class="cps">' + campoEnd('e-bai', 'Bairro', E.bairro) + '</div></div><input type="hidden" class="e-num" value="' + esc(E.numero) + '">', function(q){ return lerEnd(q, false); });
+      E.rua = titulo(r3.rua); E.bairro = titulo(r3.bairro);
+    }
+    eu(E.numero + ' · CEP ' + E.cep);
+    await bot('É na <b>' + esc(E.rua + ', ' + E.numero + ' – ' + E.bairro + ' – ' + E.cidade) + '</b>?');
+    var ok = await perguntar({ botoes: [{ t: 'Sim', v: 'sim', pri: 1 }, { t: 'Não', v: 'nao', neg: 1 }], texto: false });
+    if (ok === 'sim') return E;
+    msgErro = 'Confira o número e o CEP, ou marque "Não sei meu CEP".';
+  }
+}
+
 function quadroMarcar(titulo, idx, base){
   var h = idx.map(function(k){ var x = base[k]; return '<label class="ck lin" style="margin:0 0 8px"><input type="checkbox" class="mk" data-i="' + k + '"> ' + esc(x.modelo + (x.ano ? ' ' + x.ano : '') + (x.placa ? ' · ' + x.placa : '')) + '</label>'; }).join('');
   return quadro(titulo, 'Marque os veículos.', h, function(q){ var o = []; q.querySelectorAll('input.mk').forEach(function(c){ if (c.checked) o.push(+c.dataset.i); }); return { v: o }; });
@@ -671,6 +757,13 @@ async function conversaIA(pre){
     if (!r) return;
     progresso(Math.min(88, 10 + (HIST.length * 2.2)));
     botoes = r.botoes || [];
+    if (r.endereco){ // 13/11/2026 (Publicação 196): a etapa do endereço
+      var en = await quadroEndereco();
+      ['cep','rua','numero','bairro','cidade','lat','lon'].forEach(function(k){ DADOS[k] = en[k]; });
+      DADOS.cep = soDig(en.cep);
+      HIST.push({ r: 'u', t: '(endereço preenchido no quadro: ' + en.rua + ', ' + en.numero + ' – ' + en.bairro + ' – ' + en.cidade + (en.cep ? ', CEP ' + en.cep : '') + (en.lat ? ', com localização do celular' : '') + ')' });
+      r = await iaPerguntar(); if (!r) return; botoes = r.botoes || [];
+    }
     if (r.veiculos){ // 13/11/2026 (Publicação 194): o quadro dos veículos
       var vs = await quadroVeiculos(r.veiculos);
       DADOS.veiculos = vs.map(function(v){ return { placa: v.placa, modelo: v.modelo, ano: v.ano, gnv: v.gnv, rastreio: v.rastreio }; });
