@@ -555,6 +555,27 @@ function quadro(titulo, sub, corpoHtml, ler){
 }
 async function quadroVeiculos(n){
   var mx = new Date().getFullYear() + 1, linhas = '';
+  // 13/11/2026 (dono): primeiro pergunta se sabe as placas; se não, o quadro já pede modelo e ano
+  await bot(n > 1 ? 'Você sabe as <b>placas dos ' + n + ' veículos</b>?' : 'Você sabe a <b>placa do veículo</b>?');
+  var sabe = await perguntar({ botoes: [{ t: 'Sim', v: 'sim', pri: 1 }, { t: 'Não sei', v: 'nao', neg: 1 }], texto: false });
+  if (sabe !== 'sim'){
+    var lm = '';
+    for (var j = 0; j < n; j++) lm += '<div class="lin"><b>' + (n > 1 ? 'Veículo ' + (j + 1) : 'Veículo') + '</b><div class="cps">'
+      + '<input type="text" class="mod" data-i="' + j + '" placeholder="Modelo (ex.: Fiat Uno, Honda CG 160)" maxlength="60">'
+      + '<input type="text" class="ano" data-i="' + j + '" placeholder="Ano" inputmode="numeric" maxlength="4"></div></div>';
+    var sp = await quadro(n > 1 ? 'Modelos dos ' + n + ' veículos' : 'Modelo do veículo', 'Escreva o modelo e o ano de cada um.', lm, function(q){
+      var v = [], erro = '';
+      for (var k = 0; k < n; k++){
+        var m = q.querySelector('input.mod[data-i="' + k + '"]'), an = q.querySelector('input.ano[data-i="' + k + '"]'), mv = m.value.trim(), av = soDig(an.value);
+        if (mv.length < 2){ m.classList.add('mal'); erro = erro || 'Escreva o modelo destacado.'; }
+        if (!(+av >= 1980 && +av <= mx)){ an.classList.add('mal'); erro = erro || (av ? 'Confira o ano destacado (4 números, ex.: 2020).' : 'Preencha o ano de todos os veículos.'); }
+        v.push({ placa: '', ano: av, modelo: mv, gnv: '', rastreio: '' });
+      }
+      return erro ? { erro: erro } : { v: v };
+    });
+    eu(sp.map(function(x, k){ return (n > 1 ? (k + 1) + ') ' : '') + x.modelo + ' ' + x.ano; }).join('\n'));
+    return await gnvBloqueio(sp, n);
+  }
   for (var i = 0; i < n; i++){
     linhas += '<div class="lin"><b>' + (n > 1 ? 'Veículo ' + (i + 1) : 'Veículo') + '</b><div class="cps">'
       + '<input type="text" class="placa" data-i="' + i + '" placeholder="Placa (ABC1D23)" maxlength="7" autocapitalize="characters" autocomplete="off">'
@@ -600,6 +621,9 @@ async function quadroVeiculos(n){
     Object.keys(comp).forEach(function(k){ base[k].modelo = comp[k].modelo; base[k].ano = comp[k].ano; });
     eu(falta.map(function(k){ return (n > 1 ? (+k + 1) + ') ' : '') + base[k].modelo + ' ' + base[k].ano; }).join('\n'));
   }
+  return await gnvBloqueio(base, n);
+}
+async function gnvBloqueio(base, n){
   // GNV: só pergunta para carro/van/utilitário (moto e pesados ficam "não")
   var comGnv = base.map(function(x, k){ return k; }).filter(function(k){ return !ehMoto(base[k].modelo) && !ehPesado(base[k].modelo); });
   base.forEach(function(x){ x.gnv = 'nao'; });
@@ -662,6 +686,19 @@ function ligarQuadroEnd(){ // máscara do CEP e o "não sei meu CEP" mostrando o
     var c = q.querySelector('input.e-cep'); if (c){ c.addEventListener('input', function(){ c.value = fmtCep(c.value); c.classList.remove('mal'); }); }
     var k = q.querySelector('input.e-semcep'), box = q.querySelector('.e-man');
     if (k && box) k.addEventListener('change', function(){ box.style.display = k.checked ? '' : 'none'; if (c){ c.disabled = k.checked; if (k.checked) c.value = ''; } });
+    var pc = q.querySelector('.e-pergcep'); // 13/11/2026 (dono): "Você sabe o seu CEP?" dentro do quadro
+    if (pc){
+      var env = q.querySelector('.env'); env.disabled = true; env.style.opacity = '.45';
+      pc.querySelectorAll('button').forEach(function(bt){ bt.onclick = function(){
+        var sim = bt.dataset.v === 'sim';
+        pc.querySelectorAll('button').forEach(function(x){ x.classList.remove('pri'); if (x.dataset.v === 'nao') x.classList.add('neg'); });
+        if (sim){ bt.classList.add('pri'); } else { bt.classList.remove('neg'); bt.classList.add('pri'); }
+        q.querySelector('.e-com').style.display = sim ? '' : 'none'; box.style.display = sim ? 'none' : ''; q.querySelector('.e-numbox').style.display = '';
+        k.checked = !sim; if (c){ c.disabled = !sim; if (!sim) c.value = ''; }
+        env.disabled = false; env.style.opacity = '';
+        var f1 = q.querySelector(sim ? 'input.e-cep' : 'input.e-rua'); if (f1) setTimeout(function(){ f1.focus(); }, 50);
+      }; });
+    }
     q.querySelectorAll('input').forEach(function(i){ i.addEventListener('input', function(){ i.classList.remove('mal'); }); });
   }, 30);
 }
@@ -692,17 +729,19 @@ async function quadroEndereco(){
   }
   var msgErro = '';
   while (true){
-    var corpo2 = '<div class="lin"><b>Número da residência e complemento</b><div class="cps">' + campoEnd('e-num', 'Ex.: 210, casa 2', E.numero, ' maxlength="60"') + '</div></div>'
-      + '<div class="lin"><b>CEP</b><div class="cps">' + campoEnd('e-cep', '00000-000', E.cep, ' inputmode="numeric" maxlength="9"') + '</div>'
-      + '<label class="ck"><input type="checkbox" class="e-semcep"> Não sei meu CEP</label></div>'
+    var corpo2 = '<div class="lin"><b>Você sabe o seu CEP?</b><div class="botoes e-pergcep" style="justify-content:flex-start;align-self:auto;max-width:none;margin-top:4px">'
+      + '<button type="button" data-v="sim">Sim</button><button type="button" class="neg" data-v="nao">Não sei</button></div></div>'
+      + '<div class="e-com" style="display:none"><div class="lin"><b>CEP</b><div class="cps">' + campoEnd('e-cep', '00000-000', E.cep, ' inputmode="numeric" maxlength="9"') + '</div></div></div>'
       + '<div class="e-man" style="display:none"><div class="lin"><b>Rua</b><div class="cps">' + campoEnd('e-rua', 'Ex.: Rua das Flores', E.rua) + '</div></div>'
-      + '<div class="lin"><b>Bairro e cidade</b><div class="cps">' + campoEnd('e-bai', 'Bairro', E.bairro) + campoEnd('e-cid', 'Cidade', E.cidade || 'Duque de Caxias') + '</div></div></div>';
+      + '<div class="lin"><b>Bairro e cidade</b><div class="cps">' + campoEnd('e-bai', 'Bairro', E.bairro) + campoEnd('e-cid', 'Cidade', E.cidade || 'Duque de Caxias') + '</div></div></div>'
+      + '<div class="e-numbox" style="display:none"><div class="lin"><b>Número da residência e complemento</b><div class="cps">' + campoEnd('e-num', 'Ex.: 210, casa 2', E.numero, ' maxlength="60"') + '</div></div></div>'
+      + '<input type="checkbox" class="e-semcep" style="display:none">';
     ligarQuadroEnd();
-    var r2 = await quadro('Endereço da instalação', msgErro || 'Coloque o número da residência e o CEP.', corpo2, function(q){ return lerEnd(q, true); });
+    var r2 = await quadro('Endereço da instalação', msgErro || '', corpo2, function(q){ return lerEnd(q, true); });
     E.numero = r2.numero;
     if (r2.semCep){ E.cep = ''; E.rua = titulo(r2.rua); E.bairro = titulo(r2.bairro); E.cidade = titulo(r2.cidade); eu(E.rua + ', ' + E.numero + ' – ' + E.bairro + ' – ' + E.cidade); return E; }
     var dg2 = digitandoLiga(), ach = await buscarCep(soDig(r2.cep)); dg2.remove();
-    if (!ach){ msgErro = '<span style="color:#C53030">Não achei esse CEP. Confira ou marque "Não sei meu CEP".</span>'; E.cep = fmtCep(r2.cep); continue; }
+    if (!ach){ msgErro = '<span style="color:#C53030">Não achei esse CEP. Confira ou toque em "Não sei".</span>'; E.cep = fmtCep(r2.cep); continue; }
     E.cep = fmtCep(r2.cep); E.rua = ach.logradouro || ''; E.bairro = ach.bairro || ''; E.cidade = ach.localidade || '';
     if (!E.rua || !E.bairro){ // CEP geral da cidade: pede rua e bairro
       ligarQuadroEnd();
@@ -713,7 +752,7 @@ async function quadroEndereco(){
     await bot('É na <b>' + esc(E.rua + ', ' + E.numero + ' – ' + E.bairro + ' – ' + E.cidade) + '</b>?');
     var ok = await perguntar({ botoes: [{ t: 'Sim', v: 'sim', pri: 1 }, { t: 'Não', v: 'nao', neg: 1 }], texto: false });
     if (ok === 'sim') return E;
-    msgErro = 'Confira o número e o CEP, ou marque "Não sei meu CEP".';
+    msgErro = 'Confira o número e o CEP, ou toque em "Não sei".';
   }
 }
 
