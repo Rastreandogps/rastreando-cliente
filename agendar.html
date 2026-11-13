@@ -48,6 +48,17 @@ main{flex:1;overflow-y:auto;padding:16px 12px 8px;scroll-behavior:smooth}
 .fim .ok{font-size:44px}.fim h3{margin:6px 0 4px;font:700 19px Sora,Inter,sans-serif;color:var(--navy)}.fim p{margin:6px 0;color:var(--text2);font-size:14.5px}
 .fim code{font-size:13px;background:#F1F4F8;padding:3px 8px;border-radius:6px}
 .fim a{display:inline-block;margin-top:12px;background:#25D366;color:#fff;text-decoration:none;font-weight:600;padding:11px 18px;border-radius:999px}
+.qd-fundo{position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:50;display:flex;align-items:flex-end;justify-content:center;animation:in .2s}
+.qd{background:#fff;width:100%;max-width:640px;max-height:88dvh;overflow:auto;border-radius:18px 18px 0 0;padding:18px 16px calc(16px + env(safe-area-inset-bottom));box-shadow:0 -6px 24px rgba(0,0,0,.18)}
+.qd h3{margin:0 0 4px;font:700 17px Sora,Inter,sans-serif;color:var(--navy)}.qd .sub{font-size:13.5px;color:var(--text2);margin:0 0 12px}
+.qd .lin{border:1px solid var(--border);border-radius:12px;padding:10px 12px;margin-bottom:10px}
+.qd .lin b{display:block;font-size:13px;color:var(--text3);margin-bottom:6px;font-weight:600}
+.qd .cps{display:flex;gap:8px;flex-wrap:wrap}.qd input[type=text]{flex:1;min-width:0;border:1.5px solid var(--border);border-radius:10px;padding:11px 12px;font:16px Inter,sans-serif;background:#F8FAFC;outline:none}
+.qd input.placa{text-transform:uppercase;letter-spacing:.06em;font-weight:600}.qd input.ano{flex:0 0 92px}.qd input:focus{border-color:var(--navy2);background:#fff}.qd input.mal{border-color:var(--danger);background:#FFF5F5}
+.qd label.ck{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--text2);margin-top:8px}.qd label.ck input{width:20px;height:20px}
+.qd .erro{color:var(--danger);font-size:13px;min-height:18px;margin:2px 0 8px}
+.qd .env{width:100%;border:0;border-radius:999px;background:var(--green);color:#fff;font:600 16px Inter,sans-serif;padding:14px;cursor:pointer}
+.qd .ach{font-size:13px;color:#16794F;margin-top:6px}
 footer{background:#fff;border-top:1px solid var(--border);padding:8px 10px calc(8px + env(safe-area-inset-bottom))}
 footer form{max-width:640px;margin:0 auto;display:flex;gap:8px;align-items:center}
 footer input{flex:1;min-width:0;border:1.5px solid var(--border);border-radius:999px;padding:12px 16px;font:16px Inter,sans-serif;color:var(--text);background:#F8FAFC;outline:none}
@@ -522,6 +533,108 @@ async function iaPerguntar(extraOculto){
   }
   return null;
 }
+/* ---------- 13/11/2026 (Publicação 194, dono): QUADRO DOS VEÍCULOS — todos de uma vez (placas + ano; modelo só do que a consulta não achar;
+   GNV e bloqueio com "todos / nenhum / alguns"). Fica na página (não depende da IA). ---------- */
+var REGEX_PLACA = /^[A-Z]{3}[0-9][A-Z0-9][0-9]{2}$/;
+var ehMoto = function(m){ return /\b(moto|motocicleta|cg|biz|pop|bros|xre|titan|fan|factor|fazer|lander|crosser|scooter|pcx|nmax|cb ?\d|xj6|mt-?0\d|dafra|shineray|haojue|yamaha|kawasaki|ducati|harley|triumph)\b/i.test(String(m || '')); };
+var ehPesado = function(m){ return /\b(caminh|truck|carreta|ônibus|onibus|trator|scania|volvo fh|iveco|mercedes[- ]benz (atego|axor|accelo|actros)|vw \d+\.\d+|delivery|constellation|worker|cargo \d|retroescav|empilhad|m[aá]quina)/i.test(String(m || '')); };
+function quadro(titulo, sub, corpoHtml, ler){
+  return new Promise(function(res){
+    var f = document.createElement('div'); f.className = 'qd-fundo';
+    f.innerHTML = '<div class="qd"><h3>' + titulo + '</h3>' + (sub ? '<p class="sub">' + sub + '</p>' : '') + corpoHtml + '<div class="erro"></div><button type="button" class="env">Enviar</button></div>';
+    document.body.appendChild(f);
+    var q = f.firstChild, er = q.querySelector('.erro');
+    q.querySelectorAll('input.placa').forEach(function(i){ i.addEventListener('input', function(){ i.value = fmtPlaca(i.value); i.classList.remove('mal'); }); });
+    q.querySelectorAll('input.ano').forEach(function(i){ i.addEventListener('input', function(){ i.value = soDig(i.value).slice(0, 4); i.classList.remove('mal'); }); });
+    q.querySelectorAll('input.semp').forEach(function(c){ c.addEventListener('change', function(){ var p = q.querySelector('input.placa[data-i="' + c.dataset.i + '"]'); p.disabled = c.checked; if (c.checked) { p.value = ''; p.classList.remove('mal'); } }); });
+    q.querySelector('.env').onclick = function(){ var r = ler(q); if (r.erro){ er.textContent = r.erro; return; } f.remove(); res(r.v); };
+    setTimeout(function(){ var p = q.querySelector('input:not([disabled])'); if (p && !('ontouchstart' in window)) p.focus(); }, 80);
+  });
+}
+async function quadroVeiculos(n){
+  var mx = new Date().getFullYear() + 1, linhas = '';
+  for (var i = 0; i < n; i++){
+    linhas += '<div class="lin"><b>' + (n > 1 ? 'Veículo ' + (i + 1) : 'Veículo') + '</b><div class="cps">'
+      + '<input type="text" class="placa" data-i="' + i + '" placeholder="Placa (ABC1D23)" maxlength="7" autocapitalize="characters" autocomplete="off">'
+      + '<input type="text" class="ano" data-i="' + i + '" placeholder="Ano" inputmode="numeric" maxlength="4"></div>'
+      + '<label class="ck"><input type="checkbox" class="semp" data-i="' + i + '"> Ainda não tem placa</label></div>';
+  }
+  var base = await quadro(n > 1 ? 'Placas dos ' + n + ' veículos' : 'Placa do veículo', 'Placa no padrão Mercosul (ABC1D23) ou antigo (ABC1234). O ano, se souber.', linhas, function(q){
+    var v = [], erro = '';
+    for (var k = 0; k < n; k++){
+      var pl = q.querySelector('input.placa[data-i="' + k + '"]'), an = q.querySelector('input.ano[data-i="' + k + '"]'), sem = q.querySelector('input.semp[data-i="' + k + '"]').checked;
+      var placa = fmtPlaca(pl.value), ano = soDig(an.value);
+      if (!sem && !REGEX_PLACA.test(placa)){ pl.classList.add('mal'); erro = erro || 'Confira a placa destacada (ex.: ABC1D23 ou ABC1234), ou marque "Ainda não tem placa".'; }
+      if (ano && !(+ano >= 1980 && +ano <= mx)){ an.classList.add('mal'); erro = erro || 'Confira o ano destacado (4 números, ex.: 2020).'; }
+      if (!sem && placa && v.some(function(x){ return x.placa === placa; })){ pl.classList.add('mal'); erro = erro || 'Tem placa repetida.'; }
+      v.push({ placa: sem ? '' : placa, ano: ano, modelo: '', gnv: '', rastreio: '' });
+    }
+    return erro ? { erro: erro } : { v: v };
+  });
+  eu(base.map(function(x, k){ return (n > 1 ? (k + 1) + ') ' : '') + (x.placa || 'sem placa') + (x.ano ? ' · ' + x.ano : ''); }).join('\n'));
+  if (base.some(function(x){ return x.placa; })){
+    var dg = digitandoLiga();
+    var achados = await Promise.all(base.map(function(x){ return x.placa ? buscarPlaca(x.placa) : Promise.resolve(null); }));
+    dg.remove();
+    achados.forEach(function(res, k){ if (res){ base[k].modelo = res.descricao + (res.dados && res.dados.cor ? ' ' + res.dados.cor : ''); if (!base[k].ano) base[k].ano = String((res.dados && (res.dados.ano_modelo || res.dados.ano_fabricacao)) || ''); } });
+  }
+  var falta = base.map(function(x, k){ return k; }).filter(function(k){ return !base[k].modelo || !base[k].ano; });
+  if (falta.length){
+    var l2 = falta.map(function(k){ var x = base[k];
+      return '<div class="lin"><b>' + (n > 1 ? 'Veículo ' + (k + 1) : 'Veículo') + (x.placa ? ' · ' + x.placa : '') + '</b>'
+        + (x.modelo ? '<div class="ach">✓ ' + esc(x.modelo) + '</div>' : '') + '<div class="cps">'
+        + (!x.modelo ? '<input type="text" class="mod" data-i="' + k + '" placeholder="Modelo (ex.: Fiat Uno, Honda CG 160)" maxlength="60">' : '')
+        + (!x.ano ? '<input type="text" class="ano" data-i="' + k + '" placeholder="Ano" inputmode="numeric" maxlength="4">' : '') + '</div></div>'; }).join('');
+    var comp = await quadro(falta.length > 1 ? 'Complete os veículos' : 'Complete o veículo', 'Não encontrei tudo pela placa. Escreva só o que falta.', l2, function(q){
+      var erro = '', out = {};
+      falta.forEach(function(k){
+        var m = q.querySelector('input.mod[data-i="' + k + '"]'), a = q.querySelector('input.ano[data-i="' + k + '"]');
+        out[k] = { modelo: base[k].modelo, ano: base[k].ano };
+        if (m){ var mv = m.value.trim(); if (mv.length < 2){ m.classList.add('mal'); erro = erro || 'Escreva o modelo destacado.'; } out[k].modelo = mv; }
+        if (a){ var av = soDig(a.value); if (!(+av >= 1980 && +av <= mx)){ a.classList.add('mal'); erro = erro || 'Escreva o ano com 4 números (ex.: 2020).'; } out[k].ano = av; }
+      });
+      return erro ? { erro: erro } : { v: out };
+    });
+    Object.keys(comp).forEach(function(k){ base[k].modelo = comp[k].modelo; base[k].ano = comp[k].ano; });
+    eu(falta.map(function(k){ return (n > 1 ? (+k + 1) + ') ' : '') + base[k].modelo + ' ' + base[k].ano; }).join('\n'));
+  }
+  // GNV: só pergunta para carro/van/utilitário (moto e pesados ficam "não")
+  var comGnv = base.map(function(x, k){ return k; }).filter(function(k){ return !ehMoto(base[k].modelo) && !ehPesado(base[k].modelo); });
+  base.forEach(function(x){ x.gnv = 'nao'; });
+  if (comGnv.length === 1){
+    await bot((n > 1 ? 'O <b>' + esc(base[comGnv[0]].modelo) + '</b> tem <b>GNV</b>?' : 'Ele tem <b>GNV</b>?'));
+    base[comGnv[0]].gnv = await perguntar({ botoes: [{ t: 'Não', v: 'nao', neg: 1 }, { t: 'Sim', v: 'sim' }], texto: false });
+  } else if (comGnv.length > 1){
+    await bot('Os ' + (comGnv.length === n ? n : comGnv.length) + ' veículos têm <b>GNV</b>?');
+    var g = await perguntar({ botoes: [{ t: 'Nenhum', v: 'nenhum' }, { t: 'Todos', v: 'todos' }, { t: 'Alguns', v: 'alguns' }], texto: false });
+    if (g === 'todos') comGnv.forEach(function(k){ base[k].gnv = 'sim'; });
+    if (g === 'alguns'){
+      var marc = await quadroMarcar('Quais têm GNV?', comGnv, base);
+      marc.forEach(function(k){ base[k].gnv = 'sim'; });
+      eu('GNV: ' + (marc.length ? marc.map(function(k){ return base[k].modelo; }).join(', ') : 'nenhum'));
+    }
+  }
+  // bloqueio
+  if (n === 1){
+    await bot('O rastreamento vai ser <b>com bloqueio</b> ou <b>sem bloqueio</b>?');
+    base[0].rastreio = await perguntar({ botoes: [{ t: 'Com bloqueio', v: 'com', pri: 1 }, { t: 'Sem bloqueio', v: 'sem' }], texto: false });
+  } else {
+    await bot('Os ' + n + ' veículos vão ser <b>com bloqueio</b>?');
+    var b = await perguntar({ botoes: [{ t: 'Todos com bloqueio', v: 'com', pri: 1 }, { t: 'Todos sem bloqueio', v: 'sem' }, { t: 'Alguns', v: 'alguns' }], texto: false });
+    if (b === 'alguns'){
+      var idx = base.map(function(x, k){ return k; });
+      var cb = await quadroMarcar('Quais vão ser COM bloqueio?', idx, base);
+      base.forEach(function(x, k){ x.rastreio = cb.indexOf(k) >= 0 ? 'com' : 'sem'; });
+      eu('Com bloqueio: ' + (cb.length ? cb.map(function(k){ return base[k].modelo; }).join(', ') : 'nenhum'));
+    } else base.forEach(function(x){ x.rastreio = b; });
+  }
+  return base;
+}
+function quadroMarcar(titulo, idx, base){
+  var h = idx.map(function(k){ var x = base[k]; return '<label class="ck lin" style="margin:0 0 8px"><input type="checkbox" class="mk" data-i="' + k + '"> ' + esc(x.modelo + (x.ano ? ' ' + x.ano : '') + (x.placa ? ' · ' + x.placa : '')) + '</label>'; }).join('');
+  return quadro(titulo, 'Marque os veículos.', h, function(q){ var o = []; q.querySelectorAll('input.mk').forEach(function(c){ if (c.checked) o.push(+c.dataset.i); }); return { v: o }; });
+}
+
 async function conversaIA(pre){
   progresso(8);
   var nome1 = primeiroNome(pre.nome);
@@ -550,6 +663,12 @@ async function conversaIA(pre){
     if (!r) return;
     progresso(Math.min(88, 10 + (HIST.length * 2.2)));
     botoes = r.botoes || [];
+    if (r.veiculos){ // 13/11/2026 (Publicação 194): o quadro dos veículos
+      var vs = await quadroVeiculos(r.veiculos);
+      DADOS.veiculos = vs.map(function(v){ return { placa: v.placa, modelo: v.modelo, ano: v.ano, gnv: v.gnv, rastreio: v.rastreio }; });
+      HIST.push({ r: 'u', t: '(veículos preenchidos no quadro: ' + vs.map(function(v, k){ return (k + 1) + ') ' + v.modelo + ' ' + v.ano + (v.placa ? ' placa ' + v.placa : ' sem placa') + ', GNV ' + v.gnv + ', ' + v.rastreio + ' bloqueio'; }).join('; ') + ')' });
+      r = await iaPerguntar(); if (!r) return; botoes = r.botoes || [];
+    }
     if (r.concluir){
       dadosParaD(DADOS);
       while (true){
