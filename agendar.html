@@ -607,13 +607,17 @@ async function quadroVeiculos(n){
   var falta = base.map(function(x, k){ return k; }).filter(function(k){ return !base[k].modelo || !base[k].ano; });
   if (falta.length){
     var l2 = falta.map(function(k){ var x = base[k];
-      return '<div class="lin"><b>' + (n > 1 ? 'Veículo ' + (k + 1) : 'Veículo') + (x.placa ? ' · ' + x.placa : '') + '</b>'
+      return '<div class="lin"><b>' + (n > 1 ? 'Veículo ' + (k + 1) : 'Veículo') + (x.placa ? ' · <span style="color:var(--navy);font-size:15px;letter-spacing:.04em">' + esc(x.placa) + '</span>' : '') + '</b>'
         + (x.modelo ? '<div class="ach">✓ ' + esc(x.modelo) + '</div>' : '') + '<div class="cps">'
         + (!x.modelo ? '<input type="text" class="mod" data-i="' + k + '" placeholder="Modelo (ex.: Fiat Uno, Honda CG 160)" maxlength="60">' : '')
         + (!x.ano ? '<input type="text" class="ano" data-i="' + k + '" placeholder="Ano" inputmode="numeric" maxlength="4">' : '') + '</div>'
-        + (!x.modelo ? '<div class="gnvq" data-i="' + k + '" style="margin-top:10px;font-size:14px;color:var(--text2)">Tem <b>GNV</b>? <span class="botoes" style="display:inline-flex;align-self:auto;max-width:none;margin-left:6px"><button type="button" data-v="nao" class="neg">Não</button><button type="button" data-v="sim">Sim</button></span></div>' : '') + '</div>'; }).join('');
+        + (!x.modelo ? '<div class="gnvq" data-i="' + k + '" style="margin-top:10px;display:flex;align-items:center;gap:10px;font-size:15px;color:var(--text2)"><span style="white-space:nowrap">Tem <b>GNV</b>?</span><span class="botoes" style="display:flex;align-self:auto;max-width:none;margin:0;flex-wrap:nowrap"><button type="button" data-v="nao" class="neg">Não</button><button type="button" data-v="sim">Sim</button></span></div>' : '') + '</div>'; }).join('');
     setTimeout(function(){ document.querySelectorAll('.qd .gnvq').forEach(function(g){ g.querySelectorAll('button').forEach(function(bt){ bt.onclick = function(){ g.dataset.v = bt.dataset.v; g.querySelectorAll('button').forEach(function(o){ o.classList.toggle('pri', o === bt); if (o.dataset.v === 'nao') o.classList.toggle('neg', o !== bt); }); g.style.color = ''; }; }); }); }, 40);
-    var comp = await quadro(falta.length > 1 ? 'Complete os veículos' : 'Complete o veículo', 'Não encontrei tudo pela placa. Complete só o que falta.', l2, function(q){
+    var soModelo = falta.every(function(k){ return !base[k].modelo; }), f0 = base[falta[0]];
+    var tituloComp = falta.length === 1
+      ? (!f0.modelo ? 'Qual é o modelo do veículo' + (f0.placa ? ' <span style="background:#FFF4CC;padding:1px 8px;border-radius:6px;letter-spacing:.04em">' + esc(f0.placa) + '</span>' : '') + '?' : 'Qual é o ano do ' + esc(f0.modelo) + '?')
+      : (soModelo ? 'Qual é o modelo destes veículos?' : 'Complete os veículos');
+    var comp = await quadro(tituloComp, 'Não encontrei pela placa.', l2, function(q){
       var erro = '', out = {};
       falta.forEach(function(k){
         var m = q.querySelector('input.mod[data-i="' + k + '"]'), a = q.querySelector('input.ano[data-i="' + k + '"]');
