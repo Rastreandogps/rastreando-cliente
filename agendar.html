@@ -538,6 +538,13 @@ async function conversaIA(pre){
     else if (/digite o seu cep|qual (é )?o (seu )?cep|o cep\b/.test(ult) && !/sabe o seu cep/.test(ult)) { modo = 'numeric'; ph = '00000-000'; ehCep = true; } // 13/11: CEP com 8 números certinhos
     else if (/\bano\b/.test(ult) && !/modelo/.test(ult)) { modo = 'numeric'; ph = 'Ex.: 2020'; }
     var resp = await perguntar({ botoes: botoes.map(function(x){ return { t: x, v: x, pri: /está certo/i.test(x), neg: /^\s*não\b/i.test(x) }; }), placeholder: ph, modo: modo, max: ehCep ? 9 : 300, formatar: ehCep ? fmtCep : null, validar: ehCep ? function(v){ return soDig(v).length !== 8 ? 'O CEP tem 8 números. Confira, por favor.' : ''; } : null }); // 13/11: "Não sei meu CEP" em destaque
+    // 13/11/2026 (dono): "4 ou mais" -> a PÁGINA pergunta a quantidade (não depende da IA)
+    if (/ou mais$/i.test(resp) && /\d/.test(resp) && botoes.indexOf(resp) >= 0){
+      await bot('Quantos são? <b>Digite o número.</b>');
+      var qtd = await perguntar({ modo: 'numeric', placeholder: 'Ex.: 5', max: 2, validar: function(v){ var n = +soDig(v); return n >= 1 && n <= 30 ? '' : 'Digite só o número de veículos (ex.: 5).'; } });
+      resp = 'São ' + (+soDig(qtd)) + ' veículos.';
+      HIST.push({ r: 'b', t: 'Quantos são? Digite o número.' });
+    }
     HIST.push({ r: 'u', t: resp });
     var r = await iaPerguntar();
     if (!r) return;
