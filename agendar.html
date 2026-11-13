@@ -523,7 +523,7 @@ async function conversaIA(pre){
   var nome1 = primeiroNome(pre.nome);
   var oi = 'Olá' + (nome1 ? ', ' + nome1 : '') + '! 👋 Sou o assistente de agendamento da Rastreando GPS.' + (IND.nome ? ' Vi que você foi indicado por ' + IND.nome + '! 🎁' : '');
   await bot(esc(oi).replace(/Rastreando GPS/, '<b>Rastreando GPS</b>')); HIST.push({ r: 'b', t: oi });
-  var q1 = 'Vou te fazer algumas perguntas rápidas para agendar a sua instalação. Para começar: qual é o seu nome completo?';
+  var q1 = 'Qual é o seu nome completo?';
   await bot(esc(q1).replace('nome completo', '<b>nome completo</b>')); HIST.push({ r: 'b', t: q1 });
   var botoes = [];
   while (true){
