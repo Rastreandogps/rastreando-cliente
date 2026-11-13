@@ -76,6 +76,7 @@ footer.soBotao{display:none}
 .fim a{display:inline-block;margin-top:12px;background:#25D366;color:#fff;text-decoration:none;font-weight:600;padding:11px 18px;border-radius:999px}
 .qd-fundo{position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:50;display:flex;align-items:flex-end;justify-content:center;animation:in .2s}
 .qd{background:#fff;width:100%;max-width:640px;max-height:88dvh;overflow:auto;border-radius:18px 18px 0 0;padding:18px 16px calc(16px + env(safe-area-inset-bottom));box-shadow:0 -6px 24px rgba(0,0,0,.18)}
+.qd .qvolta{display:inline-flex;align-items:center;gap:4px;border:0;background:#F1F4F8;color:var(--navy);font:600 14px Inter,sans-serif;padding:7px 13px 7px 10px;border-radius:999px;margin:0 0 10px;cursor:pointer}.qd .qvolta:active{transform:scale(.97)}
 .qd h3{margin:0 0 6px;font:700 19px Sora,Inter,sans-serif;color:var(--navy)}.qd .sub{font-size:13.5px;color:var(--text2);margin:0 0 12px}
 .qd .lin{border:1px solid var(--border);border-radius:12px;padding:10px 12px;margin-bottom:10px}
 .qd .lin b{display:block;font-size:13px;color:var(--text3);margin-bottom:6px;font-weight:600}
@@ -597,21 +598,26 @@ async function iaPerguntar(extraOculto){
 var REGEX_PLACA = /^[A-Z]{3}[0-9][A-Z0-9][0-9]{2}$/;
 var ehMoto = function(m, tipo){ if (/moto|ciclomotor/i.test(String(tipo || ''))) return true; return /\b(moto|motocicleta|cg|biz|pop|bros|xre|xr|nx|nxr|cbx|twister|tornado|falcon|titan|fan|factor|fazer|lander|crosser|tenere|ybr|xtz|scooter|pcx|nmax|burgman|intruder|cb ?\d+|xj6|mt-?0\d|dafra|shineray|haojue|kasinski|sundown|traxx|yamaha|kawasaki|ducati|harley|triumph|bmw g ?\d|bmw r ?\d)\b/i.test(String(m || '')); };
 var ehPesado = function(m, tipo){ if (/caminh|ônibus|onibus|micro-?ônibus|trator|reboque|semi|chassi/i.test(String(tipo || ''))) return true; return /\b(caminh|truck|carreta|ônibus|onibus|trator|scania|volvo fh|iveco|mercedes[- ]benz (atego|axor|accelo|actros)|vw \d+\.\d+|delivery|constellation|worker|cargo \d|retroescav|empilhad|m[aá]quina)/i.test(String(m || '')); };
+// 13/11/2026 (dono): todo quadro tem "Voltar" (devolve VOLTAR e quem chamou refaz a pergunta anterior)
+var VOLTAR = { voltar: true };
 function quadro(titulo, sub, corpoHtml, ler){
   return new Promise(function(res){
     var f = document.createElement('div'); f.className = 'qd-fundo';
-    f.innerHTML = '<div class="qd"><h3>' + titulo + '</h3>' + (sub ? '<p class="sub">' + sub + '</p>' : '') + corpoHtml + '<div class="qerro"></div><button type="button" class="env">Enviar</button></div>';
+    f.innerHTML = '<div class="qd"><button type="button" class="qvolta" aria-label="Voltar">‹ Voltar</button><h3>' + titulo + '</h3>' + (sub ? '<p class="sub">' + sub + '</p>' : '') + corpoHtml + '<div class="qerro"></div><button type="button" class="env">Enviar</button></div>';
     document.body.appendChild(f);
     var q = f.firstChild, er = q.querySelector('.qerro');
     q.querySelectorAll('input.placa').forEach(function(i){ i.addEventListener('input', function(){ i.value = fmtPlaca(i.value); i.classList.remove('mal'); }); });
     q.querySelectorAll('input.ano').forEach(function(i){ i.addEventListener('input', function(){ i.value = soDig(i.value).slice(0, 4); i.classList.remove('mal'); }); });
     q.querySelectorAll('input.semp').forEach(function(c){ c.addEventListener('change', function(){ var p = q.querySelector('input.placa[data-i="' + c.dataset.i + '"]'); p.disabled = c.checked; if (c.checked) { p.value = ''; p.classList.remove('mal'); } }); });
+    q.querySelector('.qvolta').onclick = function(){ f.remove(); res(VOLTAR); };
     q.querySelector('.env').onclick = function(){ var r = ler(q); if (r.erro){ er.textContent = r.erro; try { navigator.vibrate && navigator.vibrate([120, 60, 120]); } catch (e) {} q.classList.remove('treme'); void q.offsetWidth; q.classList.add('treme'); return; } f.remove(); res(r.v); };
     setTimeout(function(){ var p = q.querySelector('input:not([disabled])'); if (p && !('ontouchstart' in window)) p.focus(); }, 80);
   });
 }
 async function quadroVeiculos(n){
-  var mx = new Date().getFullYear() + 1, linhas = '';
+  var mx = new Date().getFullYear() + 1;
+  while (true){ // 13/11/2026 (dono): "Voltar" em qualquer quadro daqui volta para "Você sabe a placa?"
+  var linhas = '';
   // 13/11/2026 (dono): primeiro pergunta se sabe as placas; se não, o quadro já pede modelo e ano
   await bot(n > 1 ? 'Você sabe as <b>placas dos ' + n + ' veículos</b>?' : 'Você sabe a <b>placa do veículo</b>?');
   var sabe = await perguntar({ botoes: [{ t: 'Sim', v: 'sim', pri: 1 }, { t: 'Não sei', v: 'nao', neg: 1 }], texto: false });
@@ -630,6 +636,7 @@ async function quadroVeiculos(n){
       }
       return erro ? { erro: erro } : { v: v };
     });
+    if (sp === VOLTAR) continue;
     eu(sp.map(function(x, k){ return (n > 1 ? (k + 1) + ') ' : '') + x.modelo + ' ' + x.ano; }).join('\n'));
     return await gnvBloqueio(sp, n);
   }
@@ -651,6 +658,7 @@ async function quadroVeiculos(n){
     }
     return erro ? { erro: erro } : { v: v };
   });
+  if (base === VOLTAR) continue;
   eu(base.map(function(x, k){ return (n > 1 ? (k + 1) + ') ' : '') + (x.placa || 'sem placa') + (x.ano ? ' · ' + x.ano : ''); }).join('\n'));
   if (base.some(function(x){ return x.placa; })){
     var dg = digitandoLiga();
@@ -686,10 +694,12 @@ async function quadroVeiculos(n){
       });
       return erro ? { erro: erro } : { v: out };
     });
+    if (comp === VOLTAR) continue;
     Object.keys(comp).forEach(function(k){ base[k].modelo = comp[k].modelo; base[k].ano = comp[k].ano; if (comp[k].gnv) base[k].gnvDef = comp[k].gnv; });
     eu(falta.map(function(k){ return (n > 1 ? (+k + 1) + ') ' : '') + base[k].modelo + ' ' + base[k].ano + (base[k].gnvDef ? ' · GNV ' + (base[k].gnvDef === 'sim' ? 'sim' : 'não') : ''); }).join('\n'));
   }
   return await gnvBloqueio(base, n);
+  }
 }
 async function gnvBloqueio(base, n){
   // GNV: só pergunta para carro/van/utilitário (moto e pesados ficam "não")
@@ -699,13 +709,17 @@ async function gnvBloqueio(base, n){
     await bot((n > 1 ? 'O <b>' + esc(base[comGnv[0]].modelo) + '</b> tem <b>GNV</b>?' : 'Ele tem <b>GNV</b>?'));
     base[comGnv[0]].gnv = await perguntar({ botoes: [{ t: 'Não', v: 'nao', neg: 1 }, { t: 'Sim', v: 'sim' }], texto: false });
   } else if (comGnv.length > 1){
+    while (true){
     await bot('Os ' + (comGnv.length === n ? n : comGnv.length) + ' veículos têm <b>GNV</b>?');
     var g = await perguntar({ botoes: [{ t: 'Nenhum', v: 'nenhum' }, { t: 'Todos', v: 'todos' }, { t: 'Alguns', v: 'alguns' }], texto: false });
     if (g === 'todos') comGnv.forEach(function(k){ base[k].gnv = 'sim'; });
     if (g === 'alguns'){
       var marc = await quadroMarcar('Quais têm GNV?', comGnv, base);
+      if (marc === VOLTAR) continue;
       marc.forEach(function(k){ base[k].gnv = 'sim'; });
       eu('GNV: ' + (marc.length ? marc.map(function(k){ return base[k].modelo; }).join(', ') : 'nenhum'));
+    }
+    break;
     }
   }
   // bloqueio
@@ -713,14 +727,18 @@ async function gnvBloqueio(base, n){
     await bot('O rastreamento vai ser <b>com bloqueio</b> ou <b>sem bloqueio</b>?');
     base[0].rastreio = await perguntar({ botoes: [{ t: 'Com bloqueio', v: 'com', pri: 1 }, { t: 'Sem bloqueio', v: 'sem' }], texto: false });
   } else {
+    while (true){
     await bot('Os ' + n + ' veículos vão ser <b>com bloqueio</b>?');
     var b = await perguntar({ botoes: [{ t: 'Todos com bloqueio', v: 'com', pri: 1 }, { t: 'Todos sem bloqueio', v: 'sem' }, { t: 'Alguns', v: 'alguns' }], texto: false });
     if (b === 'alguns'){
       var idx = base.map(function(x, k){ return k; });
       var cb = await quadroMarcar('Quais vão ser COM bloqueio?', idx, base);
+      if (cb === VOLTAR) continue;
       base.forEach(function(x, k){ x.rastreio = cb.indexOf(k) >= 0 ? 'com' : 'sem'; });
       eu('Com bloqueio: ' + (cb.length ? cb.map(function(k){ return base[k].modelo; }).join(', ') : 'nenhum'));
     } else base.forEach(function(x){ x.rastreio = b; });
+    break;
+    }
   }
   return base;
 }
@@ -772,6 +790,8 @@ function ligarQuadroEnd(){ // máscara do CEP e o "não sei meu CEP" mostrando o
 }
 async function quadroEndereco(){
   var E = { cep: '', rua: '', numero: '', bairro: '', cidade: '', lat: null, lon: null };
+  externo: while (true){ // 13/11/2026 (dono): "Voltar" nos quadros do endereço volta para "Você está no endereço?"
+  E.lat = null; E.lon = null;
   await bot('Você está agora no <b>endereço onde será feita a instalação</b>?');
   var aqui = await perguntar({ botoes: [{ t: 'Sim, estou no local', v: 'sim', pri: 1 }, { t: 'Não', v: 'nao', neg: 1 }], texto: false });
   if (aqui === 'sim'){
@@ -789,6 +809,7 @@ async function quadroEndereco(){
         + '<div class="lin"><b>Bairro e cidade</b><div class="cps">' + campoEnd('e-bai', 'Bairro', g.bairro) + campoEnd('e-cid', 'Cidade', g.cidade) + '</div></div>';
       ligarQuadroEnd();
       var r1 = await quadro('Confira o endereço', 'Achei pela sua localização. Confira o <b>número</b> e corrija o que precisar.', corpo, function(q){ return lerEnd(q, false); });
+      if (r1 === VOLTAR) continue externo;
       E.rua = titulo(r1.rua); E.numero = r1.numero; E.bairro = titulo(r1.bairro); E.cidade = titulo(r1.cidade);
       eu(E.rua + ', ' + E.numero + ' – ' + E.bairro + ' – ' + E.cidade + '\n📍 localização do celular');
       return E;
@@ -806,6 +827,7 @@ async function quadroEndereco(){
       + '<input type="checkbox" class="e-semcep" style="display:none">';
     ligarQuadroEnd();
     var r2 = await quadro('Você sabe o seu CEP?', msgErro || '', corpo2, function(q){ return lerEnd(q, true); });
+    if (r2 === VOLTAR) continue externo;
     E.numero = r2.numero;
     if (r2.semCep){ E.cep = ''; E.rua = titulo(r2.rua); E.bairro = titulo(r2.bairro); E.cidade = titulo(r2.cidade); eu(E.rua + ', ' + E.numero + ' – ' + E.bairro + ' – ' + E.cidade); return E; }
     var dg2 = digitandoLiga(), ach = await buscarCep(soDig(r2.cep)); dg2.remove();
@@ -814,6 +836,7 @@ async function quadroEndereco(){
     if (!E.rua || !E.bairro){ // CEP geral da cidade: pede rua e bairro
       ligarQuadroEnd();
       var r3 = await quadro('Complete o endereço', 'Esse CEP é da cidade toda. Escreva a rua e o bairro.', '<div class="lin"><b>Rua</b><div class="cps">' + campoEnd('e-rua', 'Rua', E.rua) + '</div></div><div class="lin"><b>Bairro</b><div class="cps">' + campoEnd('e-bai', 'Bairro', E.bairro) + '</div></div><input type="hidden" class="e-num" value="' + esc(E.numero) + '">', function(q){ return lerEnd(q, false); });
+      if (r3 === VOLTAR){ msgErro = ''; continue; }
       E.rua = titulo(r3.rua); E.bairro = titulo(r3.bairro);
     }
     eu(E.numero + ' · CEP ' + E.cep);
@@ -821,6 +844,7 @@ async function quadroEndereco(){
     var ok = await perguntar({ botoes: [{ t: 'Sim', v: 'sim', pri: 1 }, { t: 'Não', v: 'nao', neg: 1 }], texto: false });
     if (ok === 'sim') return E;
     msgErro = 'Confira o número e o CEP, ou toque em "Não sei".';
+  }
   }
 }
 
