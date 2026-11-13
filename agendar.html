@@ -483,6 +483,75 @@ async function conversa(pre){
   }
 }
 
+/* ---------- 13/11/2026 (Publicação 187): MODO COM INTELIGÊNCIA (só nos links do robô) ----------
+   A IA entende respostas soltas e correções; a página continua mostrando o resumo e enviando a OS do mesmo jeito. */
+var HIST = [], DADOS = {};
+function digitandoLiga(){ var d = document.createElement('div'); d.className = 'msg bot digitando'; d.innerHTML = '<span></span><span></span><span></span>'; wrap.appendChild(d); rolar(); return d; }
+async function botDireto(txt){ var d = document.createElement('div'); d.className = 'msg bot'; d.innerHTML = esc(txt).replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>').replace(/\*([^*]+)\*/g, '<b>$1</b>'); wrap.appendChild(d); rolar(); }
+function dadosParaD(o){
+  o = o || {};
+  D.nome = o.nome || ''; D.tel = o.tel ? fmtTel(o.tel) : ''; D.cpf = o.cpf || ''; D.cep = o.cep ? fmtCep(o.cep) : '';
+  D.rua = o.rua || ''; D.numero = o.numero || ''; D.bairro = o.bairro || ''; D.cidade = o.cidade || ''; D.ref = o.ref || '';
+  D.veiculos = (o.veiculos || []).map(function(v){ return { placa: v.placa || '', modelo: v.modelo || '', ano: v.ano || '', gnv: v.gnv || 'nao', rastreio: v.rastreio || 'com' }; });
+  D.data = o.data || ''; D.periodo = o.periodo || '';
+}
+async function iaPerguntar(extraOculto){
+  // manda o histórico para o servidor e mostra a resposta; devolve o objeto da IA
+  var msgs = HIST.slice(-40); if (extraOculto) msgs = msgs.concat([{ r: 'u', t: extraOculto }]);
+  for (var tent = 0; tent < 2; tent++){
+    var dig = digitandoLiga();
+    try {
+      var r = await func({ acao: 'agl_ia', t: TOKEN, msgs: msgs, dados: DADOS, indNome: IND.nome || '' });
+      dig.remove();
+      DADOS = r.dados || DADOS;
+      await botDireto(r.texto || '…'); HIST.push({ r: 'b', t: r.texto || '' });
+      return r;
+    } catch (e){
+      dig.remove();
+      var m = String(e && e.message || '');
+      if (/usado|venceu|longa demais|inválido/i.test(m)){ await erroMsg(m); travar(); return null; }
+      if (tent === 0){ await espera(1500); continue; }
+      await erroMsg('Não consegui responder agora (internet fraca?). Toque em "Tentar de novo".');
+      await perguntar({ botoes: [{ t: 'Tentar de novo', v: 'x', pri: 1 }], texto: false });
+      tent = -1;
+    }
+  }
+  return null;
+}
+async function conversaIA(pre){
+  progresso(8);
+  var nome1 = primeiroNome(pre.nome);
+  var oi = 'Olá' + (nome1 ? ', ' + nome1 : '') + '! 👋 Sou o assistente de agendamento da Rastreando GPS.' + (IND.nome ? ' Vi que você foi indicado por ' + IND.nome + '! 🎁' : '');
+  await bot(esc(oi).replace(/Rastreando GPS/, '<b>Rastreando GPS</b>')); HIST.push({ r: 'b', t: oi });
+  var q1 = 'Vou te fazer algumas perguntas rápidas para agendar a sua instalação. Para começar: qual é o seu nome completo?';
+  await bot(esc(q1).replace('nome completo', '<b>nome completo</b>')); HIST.push({ r: 'b', t: q1 });
+  var botoes = [];
+  while (true){
+    var resp = await perguntar({ botoes: botoes.map(function(x){ return { t: x, v: x }; }), placeholder: 'Escreva aqui…', max: 300 });
+    HIST.push({ r: 'u', t: resp });
+    var r = await iaPerguntar();
+    if (!r) return;
+    progresso(Math.min(88, 10 + (HIST.length * 2.2)));
+    botoes = r.botoes || [];
+    if (r.concluir){
+      dadosParaD(DADOS);
+      while (true){
+        progresso(92);
+        var r0 = document.createElement('div'); r0.className = 'resumo'; r0.innerHTML = resumoHtml(); wrap.appendChild(r0); rolar();
+        var c = await perguntar({ botoes: [{ t: 'Está certo, agendar ✅', v: 'ok', pri: 1 }, { t: 'Corrigir algo', v: 'corrigir' }], texto: false });
+        if (c === 'ok'){
+          var e = erroData(D.data); // confere de novo aqui (agenda do dia cheia, por exemplo)
+          if (e){ HIST.push({ r: 'u', t: '(aviso do sistema: o dia ' + D.data + ' não está mais disponível: ' + e + ' Peça outro dia.)' }); r = await iaPerguntar(); if (!r) return; botoes = r.botoes || []; break; }
+          while (true){ var ok = await enviar(); if (ok !== null) return; await perguntar({ botoes: [{ t: 'Tentar de novo', v: 'de novo', pri: 1 }], texto: false }); }
+        }
+        HIST.push({ r: 'u', t: 'Quero corrigir uma coisa no resumo.' });
+        r = await iaPerguntar(); if (!r) return; botoes = r.botoes || [];
+        break;
+      }
+    }
+  }
+}
+
 async function iniciar(){
   // já concluído neste aparelho?
   var feito = null; try { feito = JSON.parse(localStorage.getItem(LOCAL_KEY) || 'null'); } catch (e) {}
@@ -496,6 +565,7 @@ async function iniciar(){
     if (info.vencido){ await bot('Este link de agendamento <b>venceu</b>. ⏰\nPeça um novo para a gente no WhatsApp.'); travar(); return; }
     pre.nome = info.nome || ''; pre.telefone = info.telefone || '';
     if (info.ind){ IND.codigo = info.ind; IND.nome = info.indNome || ''; }
+    if (info.ia){ await conversaIA(pre); return; }
   } else {
     if (feito && feito.id && Date.now() - feito.em < 3 * 864e5){ await bot('Você já enviou um agendamento por aqui. ✅'); telaFim(feito.id, ''); return; }
     var m = /[?&]ind=([A-Za-z0-9]{6})(?:&|$)/.exec(location.search);
