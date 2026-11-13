@@ -50,13 +50,13 @@ main{flex:1;overflow-y:auto;padding:16px 12px 8px;scroll-behavior:smooth}
 .fim a{display:inline-block;margin-top:12px;background:#25D366;color:#fff;text-decoration:none;font-weight:600;padding:11px 18px;border-radius:999px}
 .qd-fundo{position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:50;display:flex;align-items:flex-end;justify-content:center;animation:in .2s}
 .qd{background:#fff;width:100%;max-width:640px;max-height:88dvh;overflow:auto;border-radius:18px 18px 0 0;padding:18px 16px calc(16px + env(safe-area-inset-bottom));box-shadow:0 -6px 24px rgba(0,0,0,.18)}
-.qd h3{margin:0 0 4px;font:700 17px Sora,Inter,sans-serif;color:var(--navy)}.qd .sub{font-size:13.5px;color:var(--text2);margin:0 0 12px}
+.qd h3{margin:0 0 6px;font:700 19px Sora,Inter,sans-serif;color:var(--navy)}.qd .sub{font-size:13.5px;color:var(--text2);margin:0 0 12px}
 .qd .lin{border:1px solid var(--border);border-radius:12px;padding:10px 12px;margin-bottom:10px}
 .qd .lin b{display:block;font-size:13px;color:var(--text3);margin-bottom:6px;font-weight:600}
 .qd .cps{display:flex;gap:8px;flex-wrap:wrap}.qd input[type=text]{flex:1;min-width:0;border:1.5px solid var(--border);border-radius:10px;padding:11px 12px;font:16px Inter,sans-serif;background:#F8FAFC;outline:none}
 .qd input.placa{text-transform:uppercase;letter-spacing:.06em;font-weight:600}.qd input.ano{flex:0 0 92px}.qd input:focus{border-color:var(--navy2);background:#fff}.qd input.mal{border-color:var(--danger);background:#FFF5F5}
 .qd label.ck{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--text2);margin-top:8px}.qd label.ck input{width:20px;height:20px}
-.qd .erro{color:var(--danger);font-size:13px;min-height:18px;margin:2px 0 8px}
+.qd .qerro{color:var(--danger);font-size:13px;min-height:18px;margin:2px 0 8px;background:none}
 .qd .env{width:100%;border:0;border-radius:999px;background:var(--green);color:#fff;font:600 16px Inter,sans-serif;padding:14px;cursor:pointer}
 .qd.treme{animation:treme .35s}@keyframes treme{0%,100%{transform:none}20%,60%{transform:translateX(-7px)}40%,80%{transform:translateX(7px)}}
 .qd .ach{font-size:13px;color:#16794F;margin-top:6px}
@@ -543,9 +543,9 @@ var ehPesado = function(m){ return /\b(caminh|truck|carreta|ônibus|onibus|trato
 function quadro(titulo, sub, corpoHtml, ler){
   return new Promise(function(res){
     var f = document.createElement('div'); f.className = 'qd-fundo';
-    f.innerHTML = '<div class="qd"><h3>' + titulo + '</h3>' + (sub ? '<p class="sub">' + sub + '</p>' : '') + corpoHtml + '<div class="erro"></div><button type="button" class="env">Enviar</button></div>';
+    f.innerHTML = '<div class="qd"><h3>' + titulo + '</h3>' + (sub ? '<p class="sub">' + sub + '</p>' : '') + corpoHtml + '<div class="qerro"></div><button type="button" class="env">Enviar</button></div>';
     document.body.appendChild(f);
-    var q = f.firstChild, er = q.querySelector('.erro');
+    var q = f.firstChild, er = q.querySelector('.qerro');
     q.querySelectorAll('input.placa').forEach(function(i){ i.addEventListener('input', function(){ i.value = fmtPlaca(i.value); i.classList.remove('mal'); }); });
     q.querySelectorAll('input.ano').forEach(function(i){ i.addEventListener('input', function(){ i.value = soDig(i.value).slice(0, 4); i.classList.remove('mal'); }); });
     q.querySelectorAll('input.semp').forEach(function(c){ c.addEventListener('change', function(){ var p = q.querySelector('input.placa[data-i="' + c.dataset.i + '"]'); p.disabled = c.checked; if (c.checked) { p.value = ''; p.classList.remove('mal'); } }); });
@@ -729,15 +729,15 @@ async function quadroEndereco(){
   }
   var msgErro = '';
   while (true){
-    var corpo2 = '<div class="lin"><b>Você sabe o seu CEP?</b><div class="botoes e-pergcep" style="justify-content:flex-start;align-self:auto;max-width:none;margin-top:4px">'
-      + '<button type="button" data-v="sim">Sim</button><button type="button" class="neg" data-v="nao">Não sei</button></div></div>'
+    var corpo2 = '<div class="botoes e-pergcep" style="justify-content:flex-start;align-self:auto;max-width:none;margin:2px 0 12px">'
+      + '<button type="button" data-v="sim">Sim</button><button type="button" class="neg" data-v="nao">Não sei</button></div>'
       + '<div class="e-com" style="display:none"><div class="lin"><b>CEP</b><div class="cps">' + campoEnd('e-cep', '00000-000', E.cep, ' inputmode="numeric" maxlength="9"') + '</div></div></div>'
       + '<div class="e-man" style="display:none"><div class="lin"><b>Rua</b><div class="cps">' + campoEnd('e-rua', 'Ex.: Rua das Flores', E.rua) + '</div></div>'
       + '<div class="lin"><b>Bairro e cidade</b><div class="cps">' + campoEnd('e-bai', 'Bairro', E.bairro) + campoEnd('e-cid', 'Cidade', E.cidade || 'Duque de Caxias') + '</div></div></div>'
       + '<div class="e-numbox" style="display:none"><div class="lin"><b>Número da residência e complemento</b><div class="cps">' + campoEnd('e-num', 'Ex.: 210, casa 2', E.numero, ' maxlength="60"') + '</div></div></div>'
       + '<input type="checkbox" class="e-semcep" style="display:none">';
     ligarQuadroEnd();
-    var r2 = await quadro('Endereço da instalação', msgErro || '', corpo2, function(q){ return lerEnd(q, true); });
+    var r2 = await quadro('Você sabe o seu CEP?', msgErro || '', corpo2, function(q){ return lerEnd(q, true); });
     E.numero = r2.numero;
     if (r2.semCep){ E.cep = ''; E.rua = titulo(r2.rua); E.bairro = titulo(r2.bairro); E.cidade = titulo(r2.cidade); eu(E.rua + ', ' + E.numero + ' – ' + E.bairro + ' – ' + E.cidade); return E; }
     var dg2 = digitandoLiga(), ach = await buscarCep(soDig(r2.cep)); dg2.remove();
