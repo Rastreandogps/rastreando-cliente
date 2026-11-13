@@ -504,7 +504,9 @@ async function iaPerguntar(extraOculto){
       var r = await func({ acao: 'agl_ia', t: TOKEN, msgs: msgs, dados: DADOS, indNome: IND.nome || '' });
       dig.remove();
       DADOS = r.dados || DADOS;
-      await botDireto(r.texto || '…'); HIST.push({ r: 'b', t: r.texto || '' });
+      var partes = String(r.texto || '…').split(/\n\s*\n/).map(function(x){ return x.trim(); }).filter(Boolean); // linha em branco = outra caixa
+      for (var pi = 0; pi < partes.length; pi++){ if (pi) { var dg = digitandoLiga(); await espera(500); dg.remove(); } await botDireto(partes[pi]); }
+      HIST.push({ r: 'b', t: r.texto || '' });
       return r;
     } catch (e){
       dig.remove();
