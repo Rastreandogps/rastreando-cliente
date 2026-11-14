@@ -886,7 +886,7 @@ async function quadroEndereco(){
       + '<button type="button" data-v="sim">Sim</button><button type="button" class="neg" data-v="nao">Não sei</button></div>'
       + '<div class="e-com" style="display:none"><div class="lin"><b>CEP</b><div class="cps">' + campoEnd('e-cep', '00000-000', E.cep, ' inputmode="numeric" maxlength="9"') + '</div></div></div>'
       + '<div class="e-man" style="display:none"><div class="lin"><b>Rua</b><div class="cps">' + campoEnd('e-rua', 'Ex.: Rua das Flores', E.rua) + '</div></div>'
-      + '<div class="lin"><b>Bairro e cidade</b><div class="cps">' + campoEnd('e-bai', 'Bairro', E.bairro) + campoEnd('e-cid', 'Cidade', E.cidade || 'Duque de Caxias') + '</div></div></div>'
+      + '<div class="lin"><b>Bairro e cidade</b><div class="cps">' + campoEnd('e-bai', 'Bairro', E.bairro) + campoEnd('e-cid', 'Cidade', E.cidade) + '</div></div></div>'
       + '<div class="e-numbox" style="display:none"><div class="lin"><b>Número da residência e complemento</b><div class="cps">' + campoEnd('e-num', 'Ex.: 210, casa 2', E.numero, ' maxlength="60"') + '</div></div></div>'
       + '<input type="checkbox" class="e-semcep" style="display:none">';
     ligarQuadroEnd();
