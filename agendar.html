@@ -645,6 +645,10 @@ async function iaPerguntar(extraOculto){
    GNV e bloqueio com "todos / nenhum / alguns"). Fica na página (não depende da IA). ---------- */
 var REGEX_PLACA = /^[A-Z]{3}[0-9][A-Z0-9][0-9]{2}$/;
 var ehMoto = function(m, tipo){ if (/moto|ciclomotor/i.test(String(tipo || ''))) return true; return /\b(moto|motocicleta|cg|biz|pop|bros|xre|xr|nx|nxr|cbx|twister|tornado|falcon|titan|fan|factor|fazer|lander|crosser|tenere|ybr|xtz|scooter|pcx|nmax|burgman|intruder|cb ?\d+|xj6|mt-?0\d|dafra|shineray|haojue|kasinski|sundown|traxx|yamaha|kawasaki|ducati|harley|triumph|bmw g ?\d|bmw r ?\d)\b/i.test(String(m || '')); };
+// 14/11/2026 (dono): combustível da consulta — diesel/elétrico não tem GNV; GNV que já consta no documento vem marcado
+var combSemGnv = function(c){ c = String(c || ''); return /diesel/i.test(c) || /^\s*el[eé]tric[oa]?\s*$/i.test(c); };
+var combTemGnv = function(c){ return /gnv|gnc|g[aá]s\s*(natural|metano)/i.test(String(c || '')); };
+var semPergGnv = function(x){ return ehMoto(x.modelo, x.tipo) || ehPesado(x.modelo, x.tipo) || combSemGnv(x.comb); };
 var ehPesado = function(m, tipo){ if (/caminh|ônibus|onibus|micro-?ônibus|trator|reboque|semi|chassi/i.test(String(tipo || ''))) return true; return /\b(caminh|truck|carreta|ônibus|onibus|trator|scania|volvo fh|iveco|mercedes[- ]benz (atego|axor|accelo|actros)|vw \d+\.\d+|delivery|constellation|worker|cargo \d|retroescav|empilhad|m[aá]quina)/i.test(String(m || '')); };
 // 13/11/2026 (dono): todo quadro tem "Voltar" (devolve VOLTAR e quem chamou refaz a pergunta anterior)
 var VOLTAR = { voltar: true };
@@ -710,9 +714,9 @@ async function quadroVeiculos(n){
     var dg = digitandoLiga();
     var achados = await Promise.all(base.map(function(x){ return x.placa ? buscarPlaca(x.placa) : Promise.resolve(null); }));
     dg.remove();
-    achados.forEach(function(res, k){ if (res){ base[k].modelo = res.descricao + (res.dados && res.dados.cor ? ' ' + res.dados.cor : ''); base[k].tipo = String((res.dados && res.dados.tipo_veiculo) || ''); if (!base[k].ano) base[k].ano = String((res.dados && (res.dados.ano_modelo || res.dados.ano_fabricacao)) || ''); } });
+    achados.forEach(function(res, k){ if (res){ base[k].modelo = res.descricao + (res.dados && res.dados.cor ? ' ' + res.dados.cor : ''); base[k].tipo = String((res.dados && res.dados.tipo_veiculo) || ''); base[k].comb = String((res.dados && res.dados.combustivel) || ''); if (combTemGnv(base[k].comb) && !semPergGnv(base[k])) base[k].gnvDef = 'sim'; else delete base[k].gnvDef; if (!base[k].ano) base[k].ano = String((res.dados && (res.dados.ano_modelo || res.dados.ano_fabricacao)) || ''); } });
     // 13/11/2026 (dono): mostra o que a consulta achou, para o cliente entender as próximas perguntas
-    var achou = base.map(function(x, k){ return x.modelo ? (n > 1 ? (k + 1) + ') ' : '') + x.modelo + (ehMoto(x.modelo, x.tipo) ? ' 🏍️' : '') : ''; }).filter(Boolean);
+    var achou = base.map(function(x, k){ return x.modelo ? (n > 1 ? (k + 1) + ') ' : '') + x.modelo + (ehMoto(x.modelo, x.tipo) ? ' 🏍️' : '') + (x.gnvDef === 'sim' ? ' · GNV' : '') : ''; }).filter(Boolean);
     if (achou.length) await bot('Encontrei pela placa:\n<b>' + achou.map(esc).join('\n') + '</b>');
   }
   var falta = base.map(function(x, k){ return k; }).filter(function(k){ return !base[k].modelo || !base[k].ano; });
@@ -748,9 +752,9 @@ async function quadroVeiculos(n){
 function botaoDuplo(cls, k, a, b, ini){ return '<div class="tgl" data-c="' + cls + '" data-i="' + k + '" data-v="' + ini + '"><span class="tgn">' + (cls === 'g' ? 'GNV' : 'Bloqueio') + '</span><span class="tgb">'
   + '<button type="button" data-v="' + a[0] + '"' + (ini === a[0] ? ' class="on"' : '') + '>' + a[1] + '</button><button type="button" data-v="' + b[0] + '"' + (ini === b[0] ? ' class="on"' : '') + '>' + b[1] + '</button></span></div>'; }
 async function quadroGnvBloqueio(base, n){
-  var h = base.map(function(x, k){ var temG = !ehMoto(x.modelo, x.tipo) && !ehPesado(x.modelo, x.tipo);
+  var h = base.map(function(x, k){ var temG = !semPergGnv(x);
     return '<div class="lin"><b>Veículo ' + (k + 1) + (x.placa ? ' · ' + esc(x.placa) : '') + '</b><div class="vmod">' + esc(x.modelo + (x.ano && String(x.modelo).indexOf(x.ano) < 0 ? ' ' + x.ano : '')) + (ehMoto(x.modelo, x.tipo) ? ' 🏍️' : '') + '</div>'
-      + (temG ? botaoDuplo('g', k, ['nao', 'Não tem'], ['sim', 'Tem'], 'nao') : '') + botaoDuplo('b', k, ['com', 'Com'], ['sem', 'Sem'], 'com') + '</div>'; }).join('');
+      + (temG ? botaoDuplo('g', k, ['nao', 'Não tem'], ['sim', 'Tem'], x.gnvDef === 'sim' ? 'sim' : 'nao') : '') + botaoDuplo('b', k, ['com', 'Com'], ['sem', 'Sem'], 'com') + '</div>'; }).join('');
   setTimeout(function(){ document.querySelectorAll('.qd .tgl').forEach(function(t){ t.querySelectorAll('button').forEach(function(bt){ bt.onclick = function(){ t.dataset.v = bt.dataset.v; t.querySelectorAll('button').forEach(function(o){ o.classList.toggle('on', o === bt); }); }; }); }); }, 40);
   return quadro('Confira os veículos', 'Toque para mudar o que for diferente.', h, function(q){
     var o = base.map(function(){ return { gnv: 'nao', rastreio: 'com' }; });
@@ -768,7 +772,7 @@ async function gnvBloqueio(base, n){
     return base;
   }
   // GNV: só pergunta para carro/van/utilitário (moto e pesados ficam "não")
-  var comGnv = base.map(function(x, k){ return k; }).filter(function(k){ return !base[k].gnvDef && !ehMoto(base[k].modelo, base[k].tipo) && !ehPesado(base[k].modelo, base[k].tipo); });
+  var comGnv = base.map(function(x, k){ return k; }).filter(function(k){ return !base[k].gnvDef && !semPergGnv(base[k]); });
   base.forEach(function(x){ x.gnv = x.gnvDef || 'nao'; });
   if (comGnv.length === 1){
     await bot((n > 1 ? 'O <b>' + esc(base[comGnv[0]].modelo) + '</b> tem <b>GNV</b>?' : 'Ele tem <b>GNV</b>?'));
