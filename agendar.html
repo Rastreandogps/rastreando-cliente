@@ -949,15 +949,55 @@ async function editarEndereco(el){
   avisoCorrecao('endereço = ' + el.textContent.replace(/\n/g, ', '));
   atualizarResumo();
 }
+async function dadosIniciais(pre){
+  var q, v;
+  // nome
+  if (pre.nome){
+    q = 'Seu nome completo é ' + pre.nome + '?'; await bot('Seu nome completo é <b>' + esc(pre.nome) + '</b>?');
+    v = await perguntar({ botoes: [{ t: 'Sim, é isso', v: 'sim', pri: 1 }, { t: 'Corrigir', v: 'nao', neg: 1 }], texto: false });
+    if (v === 'sim'){ DADOS.nome = titulo(pre.nome); HIST.push({ r: 'b', t: q }, { r: 'u', t: 'Sim' }); }
+  }
+  if (!DADOS.nome){
+    q = 'Qual é o seu nome completo?'; await bot('Qual é o seu <b>nome completo</b>?');
+    v = await perguntar({ placeholder: 'Nome e sobrenome', max: 80, validar: function(x){ x = limparNome(x); return x.split(/\s+/).length < 2 || x.length < 5 ? 'Escreva o nome e o sobrenome, por favor.' : ''; } });
+    DADOS.nome = titulo(limparNome(v)); var bn = ultimoEu(); if (bn) bn.textContent = DADOS.nome; editavel(bn, 'nome');
+    HIST.push({ r: 'b', t: q }, { r: 'u', t: DADOS.nome });
+  }
+  progressoIA();
+  // WhatsApp
+  var tp = soDig(pre.telefone).replace(/^55(?=\d{10,11}$)/, '');
+  if (tp.length === 10 || tp.length === 11){
+    q = 'O seu WhatsApp é ' + fmtTel(tp) + '?'; await bot('O seu WhatsApp é <b>' + esc(fmtTel(tp)) + '</b>?');
+    v = await perguntar({ botoes: [{ t: 'Sim', v: 'sim', pri: 1 }, { t: 'É outro número', v: 'nao', neg: 1 }], texto: false });
+    if (v === 'sim'){ DADOS.tel = tp; HIST.push({ r: 'b', t: q }, { r: 'u', t: 'Sim' }); }
+  }
+  if (!DADOS.tel){
+    q = 'Qual é o seu WhatsApp com DDD?'; await bot('Qual é o seu <b>WhatsApp</b> com DDD?');
+    v = await perguntar({ tipo: 'tel', modo: 'tel', placeholder: '(21) 98765-4321', max: 16, formatar: fmtTel, validar: function(x){ var d = soDig(x).replace(/^55(?=\d{10,11}$)/, ''); return d.length < 10 || d.length > 11 ? 'Confira o número: são o DDD e mais 8 ou 9 dígitos.' : ''; } });
+    DADOS.tel = soDig(v).replace(/^55(?=\d{10,11}$)/, ''); var bt = ultimoEu(); if (bt) bt.textContent = fmtTel(DADOS.tel); editavel(bt, 'tel');
+    HIST.push({ r: 'b', t: q }, { r: 'u', t: DADOS.tel });
+  }
+  DADOS.telConfirmado = true;
+  progressoIA();
+  // CPF ou CNPJ
+  q = 'Qual é o seu CPF ou CNPJ? (opcional)'; await bot('Qual é o seu <b>CPF ou CNPJ</b>? (opcional)');
+  v = await perguntar({ modo: 'numeric', placeholder: 'Só os números', max: 18, formatar: fmtCpf, botoes: [{ t: 'Pular', v: '__pular' }],
+    validar: function(x){ var d = soDig(x); return cpfValido(d) || cnpjValido(d) ? '' : 'Esse CPF/CNPJ não parece certo. Confira os números ou toque em "Pular".'; } });
+  if (v === '__pular'){ DADOS.cpf = ''; DADOS.semCpf = true; HIST.push({ r: 'b', t: q }, { r: 'u', t: 'Pular' }); }
+  else { DADOS.cpf = soDig(v); DADOS.semCpf = false; var bc = ultimoEu(); if (bc) bc.textContent = fmtCpf(DADOS.cpf); editavel(bc, 'cpf'); HIST.push({ r: 'b', t: q }, { r: 'u', t: DADOS.cpf }); }
+  progressoIA();
+}
+function limparNome(x){ return String(x || '').trim().replace(/^(o\s+)?(meu nome (é|e)|me chamo|eu sou( o| a)?|sou( o| a)?)\s+/i, '').replace(/[.!]+$/, '').trim(); }
 async function conversaIA(pre){
   progresso(3);
   var nome1 = primeiroNome(pre.nome);
   var oi = 'Olá' + (nome1 ? ', ' + nome1 : '') + '! 👋 Sou o assistente de agendamento da Rastreando GPS.' + (IND.nome ? ' Vi que você foi indicado por ' + IND.nome + '! 🎁' : '');
   await bot(esc(oi).replace(/Rastreando GPS/, '<b>Rastreando GPS</b>')); HIST.push({ r: 'b', t: oi });
-  var q1 = 'Qual é o seu nome completo?';
-  await bot(esc(q1).replace('nome completo', '<b>nome completo</b>')); HIST.push({ r: 'b', t: q1 });
-  var botoes = [];
+  // 14/11/2026 (dono): nome, WhatsApp e CPF são perguntados pela PÁGINA (sem esperar a IA); a IA entra a partir do endereço
+  await dadosIniciais(pre);
+  var botoes = [], inicioPagina = true;
   while (true){
+    if (inicioPagina){ inicioPagina = false; } else {
     // 13/11/2026 (dono): pergunta de número abre o teclado numérico (WhatsApp, CPF/CNPJ, CEP, ano)
     var ult = String((HIST[HIST.length - 1] || {}).t || '').split(/\n\s*\n/).pop().toLowerCase(), modo = 'text', ph = 'Escreva aqui…', ehCep = false;
     if (/whatsapp|telefone|celular/.test(ult) && !/está certo/.test(botoes.join(' ').toLowerCase())) { modo = 'tel'; ph = '(21) 98765-4321'; }
@@ -985,6 +1025,7 @@ async function conversaIA(pre){
       if (campoEd){ editavel(ultimoEu(), campoEd); delete EDITS[campoEd]; }
     }
     HIST.push({ r: 'u', t: resp });
+    }
     var r = await iaPerguntar();
     if (!r) return;
     progressoIA();
