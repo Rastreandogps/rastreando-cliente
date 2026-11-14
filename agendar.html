@@ -107,8 +107,6 @@ footer.trava{display:none}
 <main id="chat"><div class="wrap" id="wrap"></div></main>
 <footer id="rodape"><form id="fEntrada" autocomplete="off"><input id="entrada" placeholder="Escreva aqui…" disabled><button id="enviar" disabled aria-label="Enviar">➤</button></form></footer>
 
-<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 <script>
 (function(){
 'use strict';
@@ -119,11 +117,23 @@ var CONFIG = {
   WHATSAPP_NUMERO: "5521980886087"
 };
 var dbF = null;
+// 14/11/2026 (dono): a 1ª mensagem demorava ~3 s. (1) o link é conferido logo de cara, sem esperar nada;
+// (2) o Firebase (só usado no envio) carrega em segundo plano, sem travar a página.
+var TOKEN0 = (/[?&]t=([a-z0-9]{16,40})(?:&|$)/.exec(location.search) || [])[1] || '';
+var AGL_VER = TOKEN0 ? fetch(CONFIG.FUNC_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ data: { acao: 'agl_ver', t: TOKEN0 } }) })
+  .then(function(r){ return r.json(); }).then(function(j){ if (j && j.error) throw new Error(j.error.message || 'Erro'); return j && j.result; }) : null;
+if (AGL_VER) AGL_VER.catch(function(){});
+function carregarJs(src){ return new Promise(function(ok, falha){ var sc = document.createElement('script'); sc.src = src; sc.async = true; sc.onload = ok; sc.onerror = falha; document.head.appendChild(sc); }); }
+var FB_PRONTO = carregarJs('https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js')
+  .then(function(){ return carregarJs('https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js'); })
+  .then(function(){ iniciarFirebase(); }).catch(function(e){ console.warn('[Rastreando GPS] Firebase não carregou.', e); });
+function iniciarFirebase(){
 try {
   firebase.initializeApp({ apiKey: "AIzaSyCnWCqWOBgk5D4d3KmDM-XiIxEoMojRyd8", authDomain: "rastreando-gps.firebaseapp.com", projectId: "rastreando-gps",
     storageBucket: "rastreando-gps.firebasestorage.app", messagingSenderId: "481162335739", appId: "1:481162335739:web:fe3d91aaa33749a9f3e75e" });
   dbF = firebase.firestore();
 } catch (e) { console.warn('[Rastreando GPS] Firebase não iniciou.', e); }
+}
 
 var $ = function(id){ return document.getElementById(id); };
 var wrap = $('wrap'), chat = $('chat'), entrada = $('entrada'), btnEnviar = $('enviar'), fEntrada = $('fEntrada');
@@ -262,11 +272,11 @@ var NOMES_DIA = ['domingo','segunda','terça','quarta','quinta','sexta','sábado
 function dataBR(s){ var p = String(s).split('-'); return p.length === 3 ? p[2] + '/' + p[1] + '/' + p[0] : s; }
 function rotuloDia(s, hoje){ if (s === hoje) return 'Hoje'; if (s === addDias(hoje, 1)) return 'Amanhã'; var n = NOMES_DIA[diaSem(s)]; return n.charAt(0).toUpperCase() + n.slice(1, 3) + ' ' + s.slice(8) + '/' + s.slice(5, 7); }
 var HOJE = iso(new Date()), hojeBloqueado = false;
-(function(){
+FB_PRONTO.then(function(){
   if (!dbF) return;
   var hojeBR = dataBR(HOJE);
   try { dbF.collection('configuracoes').doc('bloqueioAgendamento').onSnapshot(function(sn){ var d = sn && sn.exists ? sn.data() || {} : {}; hojeBloqueado = !!d.ativo && d.data === hojeBR; }, function(){}); } catch (e) {}
-})();
+});
 function erroData(s){
   if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return 'Escolha a data no calendário.';
   if (s < HOJE) return 'Essa data já passou. Escolha hoje ou um dia depois.';
@@ -302,6 +312,10 @@ function docDoPedido(p){
     horaDesejada: p.horaDesejada || '', lido: false, criadoEm: firebase.firestore.FieldValue.serverTimestamp() };
 }
 function avisarPainel(p){
+  var espera = new Promise(function(ok){ setTimeout(ok, 12000); }); // não trava o envio se o Firebase não carregar
+  return Promise.race([FB_PRONTO, espera]).then(function(){ return avisarPainelJa(p); });
+}
+function avisarPainelJa(p){
   try {
     if (!dbF) return Promise.resolve();
     var o = pendLer(); o[p.idPedido] = { p: p, em: Date.now() }; pendGravar(o);
@@ -320,7 +334,7 @@ function reenviarPendentes(){
   });
 }
 document.addEventListener('visibilitychange', function(){ if (document.visibilityState === 'visible') setTimeout(reenviarPendentes, 800); });
-setTimeout(reenviarPendentes, 1500);
+FB_PRONTO.then(function(){ setTimeout(reenviarPendentes, 1500); });
 
 /* ---------- trava do link ---------- */
 var TOKEN = (/[?&]t=([a-z0-9]{16,40})(?:&|$)/.exec(location.search) || [])[1] || '';
@@ -926,7 +940,9 @@ async function iniciar(){
   var pre = { nome: '', telefone: '' };
   if (TOKEN){
     var info = null;
-    try { info = await func({ acao: 'agl_ver', t: TOKEN }); } catch (e) { info = { erroRede: true }; }
+    var dgI = digitandoLiga(); // os "três pontinhos" já aparecem enquanto o link é conferido
+    try { info = await (AGL_VER || func({ acao: 'agl_ver', t: TOKEN })); } catch (e) { info = { erroRede: true }; }
+    dgI.remove();
     if (info && info.erroRede){ await bot('Não consegui abrir o seu agendamento agora. Confira a internet e recarregue a página. 🙏'); return; }
     if (!info || !info.valido){ await bot('Este link de agendamento não é válido. 😕\nPeça um novo para a gente no WhatsApp.'); travar(); return; }
     if (info.usado){ await bot('Este agendamento <b>já foi enviado</b>. ✅\nSe precisar mudar alguma coisa, fale com a gente no WhatsApp.'); telaFim(info.idPedido || '', ''); return; }
