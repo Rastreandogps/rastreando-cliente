@@ -961,6 +961,24 @@ async function editarEndereco(el){
   avisoCorrecao('endereço = ' + el.textContent.replace(/\n/g, ', '));
   atualizarResumo();
 }
+async function enderecoEVeiculos(){
+  var en = await quadroEndereco();
+  ['cep','rua','numero','bairro','cidade','lat','lon'].forEach(function(k){ DADOS[k] = en[k]; });
+  DADOS.cep = soDig(en.cep); editavel(ultimoEu(), 'end');
+  HIST.push({ r: 'b', t: 'Você está agora no endereço onde será feita a instalação?' }, { r: 'u', t: '(endereço preenchido no quadro: ' + en.rua + ', ' + en.numero + ' – ' + en.bairro + ' – ' + en.cidade + (en.cep ? ', CEP ' + en.cep : '') + (en.lat ? ', com localização do celular' : '') + ')' });
+  progressoIA();
+  await bot('<b>Quantos veículos vão receber o rastreador?</b>');
+  var q = await perguntar({ botoes: [{ t: '1', v: '1' }, { t: '2', v: '2' }, { t: '3', v: '3' }, { t: '4 ou mais', v: 'mais' }], texto: false }), n = +q;
+  if (q === 'mais'){
+    await bot('Quantos são? Digite o número.');
+    n = +soDig(await perguntar({ modo: 'numeric', placeholder: 'Ex.: 5', max: 2, validar: function(v){ var x = +soDig(v); return x >= 1 && x <= 30 ? '' : 'Digite só o número de veículos (ex.: 5).'; } }));
+  }
+  HIST.push({ r: 'b', t: 'Quantos veículos vão receber o rastreador?' }, { r: 'u', t: n === 1 ? 'É 1 veículo.' : 'São ' + n + ' veículos.' });
+  var vs = await quadroVeiculos(n);
+  DADOS.veiculos = vs.map(function(v){ return { placa: v.placa, modelo: v.modelo, ano: v.ano, gnv: v.gnv, rastreio: v.rastreio }; });
+  HIST.push({ r: 'u', t: '(veículos preenchidos no quadro: ' + vs.map(function(v, k){ return (k + 1) + ') ' + v.modelo + ' ' + v.ano + (v.placa ? ' placa ' + v.placa : ' sem placa') + ', GNV ' + v.gnv + ', ' + v.rastreio + ' bloqueio'; }).join('; ') + ')' });
+  progressoIA();
+}
 async function dadosIniciais(pre){
   var q, v;
   // nome
@@ -1007,6 +1025,7 @@ async function conversaIA(pre){
   await bot(esc(oi).replace(/Rastreando GPS/, '<b>Rastreando GPS</b>')); HIST.push({ r: 'b', t: oi });
   // 14/11/2026 (dono): nome, WhatsApp e CPF são perguntados pela PÁGINA (sem esperar a IA); a IA entra a partir do endereço
   await dadosIniciais(pre);
+  await enderecoEVeiculos(); // 14/11/2026 (dono): endereço, quantidade e veículos também são da página (sem esperar a IA); a IA entra no dia
   var botoes = [], inicioPagina = true;
   while (true){
     if (inicioPagina){ inicioPagina = false; } else {
