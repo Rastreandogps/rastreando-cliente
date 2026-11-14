@@ -50,6 +50,16 @@ main{flex:1;overflow-y:auto;padding:16px 12px 8px;scroll-behavior:smooth}
 .msg{max-width:84%;padding:10px 13px;border-radius:16px;font-size:15.5px;line-height:1.42;white-space:pre-line;word-wrap:break-word;animation:in .22s ease-out}
 .bot{background:var(--bot);align-self:flex-start;border-top-left-radius:4px;box-shadow:0 1px 2px rgba(0,0,0,.06)}
 .me{background:var(--me);align-self:flex-end;border-top-right-radius:4px}
+/* 14/11/2026 (dono): respostas editáveis (nome, WhatsApp, CPF, endereço) */
+.edl{align-self:flex-end;margin:-4px 4px 2px 0;border:0;background:none;padding:2px 4px;font:500 12.5px Inter,sans-serif;color:var(--text3);display:inline-flex;align-items:center;gap:4px;cursor:pointer;opacity:.9}
+.edl svg{width:12px;height:12px}.edl:active{opacity:.6}
+.me.editando{background:#fff;box-shadow:0 0 0 1.5px var(--green),0 4px 14px rgba(0,179,126,.15);padding:8px 10px;min-width:min(78%,320px)}
+.me .edi{width:100%;border:0;outline:0;background:transparent;font:500 15.5px Inter,sans-serif;color:var(--text);padding:2px 2px 6px;border-bottom:1px solid var(--border)}
+.me .edi.mal{border-bottom-color:var(--danger)}
+.me .edb{display:flex;justify-content:flex-end;gap:6px;margin-top:8px}
+.me .edb button{border:0;border-radius:999px;font:600 13px Inter,sans-serif;padding:7px 14px;cursor:pointer}
+.me .edb .edc{background:transparent;color:var(--text3)}.me .edb .eds{background:var(--green);color:#fff}
+.me .ederr{font-size:12.5px;color:var(--danger);margin-top:4px}
 .msg b{font-weight:600}
 .dica{font-size:13px;color:var(--text3);margin-top:4px}
 .erro{background:#FFF1F1;color:#B42323;align-self:flex-start;border-top-left-radius:4px}
@@ -179,7 +189,7 @@ async function bot(html, extra){
   await espera(Math.min(1100, 350 + String(html).replace(/<[^>]*>/g, '').length * 9));
   d.className = 'msg bot' + (extra ? ' ' + extra : ''); d.innerHTML = html; rolar();
 }
-function eu(txt){ var d = document.createElement('div'); d.className = 'msg me'; d.textContent = txt; wrap.appendChild(d); rolar(); }
+function eu(txt){ var d = document.createElement('div'); d.className = 'msg me'; d.textContent = txt; wrap.appendChild(d); rolar(); return d; }
 async function erroMsg(txt){ await bot(esc(txt), 'erro'); }
 
 /* pergunta: espera texto digitado ou um botão. op = {botoes:[{t,v,pri}], tipo, placeholder, max, validar(fn -> '' ou erro), mostrar(fn)} */
@@ -591,7 +601,7 @@ async function iaPerguntar(extraOculto){
     try {
       var r = await func({ acao: 'agl_ia', t: TOKEN, msgs: msgs, dados: DADOS, indNome: IND.nome || '' });
       dig.remove();
-      DADOS = r.dados || DADOS;
+      DADOS = r.dados || DADOS; Object.keys(EDITS).forEach(function(k){ DADOS[k] = EDITS[k]; });
       // 14/11/2026 (dono): quando a tela abre o quadro (endereço, veículos, resumo) o aviso da IA ("…abaixo 👇") não aparece
       var txtMostra = (r.endereco || r.veiculos || r.concluir) ? '' : String(r.texto || '…');
       if (/^\s*aguard/i.test(txtMostra) && (r.botoes || []).some(function(b){ return /ou mais$/i.test(b); })) txtMostra = '**Quantos veículos vão receber o rastreador?**';
@@ -891,6 +901,54 @@ function quadroMarcar(titulo, idx, base){
   return quadro(titulo, 'Marque os veículos.', h, function(q){ var o = []; q.querySelectorAll('input.mk').forEach(function(c){ if (c.checked) o.push(+c.dataset.i); }); return { v: o }; });
 }
 
+/* ---------- 14/11/2026 (dono): editar uma resposta depois de enviada (balão + "Editar" discreto) ---------- */
+var LAPIS = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>';
+function ultimoEu(){ var l = wrap.querySelectorAll('.msg.me'); return l[l.length - 1] || null; }
+function atualizarResumo(){ var rs = wrap.querySelectorAll('.resumo'); if (rs.length){ try { dadosParaD(DADOS); rs[rs.length - 1].innerHTML = resumoHtml(); } catch (e) {} } }
+var EDITS = {}; // o que o cliente corrigiu na tela vale mais que a resposta da IA que estava a caminho
+function avisoCorrecao(txt){ HIST.push({ r: 'u', t: '(o cliente corrigiu na tela: ' + txt + ')' }); }
+function editavel(el, campo){
+  if (!el || el.dataset.ed) return; el.dataset.ed = campo;
+  var l = document.createElement('button'); l.type = 'button'; l.className = 'edl'; l.innerHTML = LAPIS + ' Editar'; el.after(l);
+  l.onclick = function(){ if (campo === 'end') editarEndereco(el); else editarTexto(el, l, campo); };
+}
+function editarTexto(el, l, campo){
+  var antes = el.textContent, cfg = {
+    nome: { ph: 'Nome completo', modo: 'text', val: DADOS.nome || antes, ok: function(v){ return v.trim().length >= 3 ? '' : 'Escreva o nome completo.'; }, fmt: null },
+    tel: { ph: '(21) 98765-4321', modo: 'tel', val: fmtTel(DADOS.tel || antes), ok: function(v){ var d = soDig(v).replace(/^55(?=\d{10,11}$)/, ''); return d.length === 10 || d.length === 11 ? '' : 'Confira o WhatsApp com DDD.'; }, fmt: fmtTel },
+    cpf: { ph: 'Só os números', modo: 'numeric', val: fmtCpf(DADOS.cpf || antes), ok: function(v){ var d = soDig(v); return (d.length === 11 && cpfValido(d)) || (d.length === 14 && cnpjValido(d)) ? '' : 'Confira o CPF (11 números) ou CNPJ (14).'; }, fmt: fmtCpf }
+  }[campo];
+  el.classList.add('editando'); l.style.display = 'none';
+  el.innerHTML = '<input class="edi" autocomplete="off" inputmode="' + cfg.modo + '" placeholder="' + cfg.ph + '"><div class="ederr"></div><div class="edb"><button type="button" class="edc">Cancelar</button><button type="button" class="eds">Salvar</button></div>';
+  var i = el.querySelector('.edi'), er = el.querySelector('.ederr'); i.value = cfg.val || '';
+  if (cfg.fmt) i.addEventListener('input', function(){ i.value = cfg.fmt(i.value); i.classList.remove('mal'); er.textContent = ''; });
+  setTimeout(function(){ i.focus(); try { i.setSelectionRange(i.value.length, i.value.length); } catch (e) {} }, 30);
+  var fechar = function(txt){ el.classList.remove('editando'); el.textContent = txt; l.style.display = ''; };
+  el.querySelector('.edc').onclick = function(){ fechar(antes); };
+  i.addEventListener('keydown', function(ev){ if (ev.key === 'Enter'){ ev.preventDefault(); el.querySelector('.eds').click(); } });
+  el.querySelector('.eds').onclick = function(){
+    var v = i.value.trim(), e = cfg.ok(v);
+    if (e){ i.classList.add('mal'); er.textContent = e; try { navigator.vibrate && navigator.vibrate(80); } catch (x) {} return; }
+    if (campo === 'nome'){ DADOS.nome = titulo(v); EDITS.nome = DADOS.nome; fechar(DADOS.nome); avisoCorrecao('nome = ' + DADOS.nome); }
+    if (campo === 'tel'){ DADOS.tel = soDig(v).replace(/^55(?=\d{10,11}$)/, ''); DADOS.telConfirmado = true; EDITS.tel = DADOS.tel; EDITS.telConfirmado = true; fechar(fmtTel(DADOS.tel)); avisoCorrecao('WhatsApp = ' + DADOS.tel); }
+    if (campo === 'cpf'){ DADOS.cpf = soDig(v); DADOS.semCpf = false; EDITS.cpf = DADOS.cpf; EDITS.semCpf = false; fechar(fmtCpf(DADOS.cpf)); avisoCorrecao('CPF/CNPJ = ' + DADOS.cpf); }
+    atualizarResumo();
+  };
+}
+async function editarEndereco(el){
+  var corpo = '<div class="lin"><b>Rua</b><div class="cps">' + campoEnd('e-rua', 'Rua', DADOS.rua) + '</div></div>'
+    + '<div class="lin"><b>Número e complemento</b><div class="cps">' + campoEnd('e-num', 'Ex.: 210, casa 2', DADOS.numero, ' maxlength="60"') + '</div></div>'
+    + '<div class="lin"><b>Bairro e cidade</b><div class="cps">' + campoEnd('e-bai', 'Bairro', DADOS.bairro) + campoEnd('e-cid', 'Cidade', DADOS.cidade) + '</div></div>'
+    + '<div class="lin"><b>CEP (se souber)</b><div class="cps">' + campoEnd('e-cep', '00000-000', DADOS.cep ? fmtCep(DADOS.cep) : '', ' inputmode="numeric" maxlength="9"') + '</div></div>';
+  ligarQuadroEnd();
+  var r = await quadro('Corrigir o endereço', '', corpo, function(q){ return lerEnd(q, false); });
+  if (r === VOLTAR) return;
+  DADOS.rua = titulo(r.rua); DADOS.numero = r.numero; DADOS.bairro = titulo(r.bairro); DADOS.cidade = titulo(r.cidade); DADOS.cep = soDig(r.cep);
+  ['rua','numero','bairro','cidade','cep'].forEach(function(k){ EDITS[k] = DADOS[k]; });
+  el.textContent = DADOS.rua + ', ' + DADOS.numero + ' – ' + DADOS.bairro + ' – ' + DADOS.cidade + (DADOS.cep ? '\nCEP ' + fmtCep(DADOS.cep) : '') + (DADOS.lat ? '\n📍 localização do celular' : '');
+  avisoCorrecao('endereço = ' + el.textContent.replace(/\n/g, ', '));
+  atualizarResumo();
+}
 async function conversaIA(pre){
   progresso(3);
   var nome1 = primeiroNome(pre.nome);
@@ -921,6 +979,11 @@ async function conversaIA(pre){
       resp = 'São ' + (+soDig(qtd)) + ' veículos.';
       HIST.push({ r: 'b', t: 'Quantos são? Digite o número.' });
     }
+    // 14/11/2026 (dono): nome, WhatsApp e CPF digitados ficam editáveis
+    if (botoes.indexOf(resp) < 0){
+      var campoEd = /nome completo|seu nome/.test(ult) ? 'nome' : (/whatsapp|telefone|celular/.test(ult) ? 'tel' : (/cpf|cnpj/.test(ult) ? 'cpf' : ''));
+      if (campoEd){ editavel(ultimoEu(), campoEd); delete EDITS[campoEd]; }
+    }
     HIST.push({ r: 'u', t: resp });
     var r = await iaPerguntar();
     if (!r) return;
@@ -929,7 +992,8 @@ async function conversaIA(pre){
     if (r.endereco){ // 13/11/2026 (Publicação 196): a etapa do endereço
       var en = await quadroEndereco();
       ['cep','rua','numero','bairro','cidade','lat','lon'].forEach(function(k){ DADOS[k] = en[k]; });
-      DADOS.cep = soDig(en.cep);
+      DADOS.cep = soDig(en.cep); ['rua','numero','bairro','cidade','cep'].forEach(function(k){ delete EDITS[k]; });
+      editavel(ultimoEu(), 'end');
       HIST.push({ r: 'u', t: '(endereço preenchido no quadro: ' + en.rua + ', ' + en.numero + ' – ' + en.bairro + ' – ' + en.cidade + (en.cep ? ', CEP ' + en.cep : '') + (en.lat ? ', com localização do celular' : '') + ')' });
       progressoIA(); r = await iaPerguntar(); if (!r) return; botoes = r.botoes || [];
     }
