@@ -315,7 +315,18 @@ function func(dados){
 function buscarCep(cep){
   return fetch('https://viacep.com.br/ws/' + cep + '/json/').then(function(r){ return r.json(); }).then(function(j){ return j && !j.erro ? j : null; }).catch(function(){ return null; });
 }
+// 14/11/2026 (dono): a placa é consultada pelo SERVIDOR (consultadeplaca.net primeiro, API Brasil de reserva).
+// Sem link com código, ou se o servidor falhar, usa a consulta antiga (API Brasil direto).
 function buscarPlaca(placa){
+  if (!TOKEN0) return buscarPlacaAntiga(placa);
+  var limite = new Promise(function(ok){ setTimeout(function(){ ok('demorou'); }, 15000); });
+  return Promise.race([func({ acao: 'agl_placa', t: TOKEN0, placa: placa }), limite]).then(function(r){
+    if (r === 'demorou') return buscarPlacaAntiga(placa);
+    if (r && r.ok && r.descricao) return r;
+    return r && r.falhou ? buscarPlacaAntiga(placa) : null;
+  }).catch(function(){ return buscarPlacaAntiga(placa); });
+}
+function buscarPlacaAntiga(placa){
   var ctl = typeof AbortController !== 'undefined' ? new AbortController() : null, tm = ctl ? setTimeout(function(){ ctl.abort(); }, 12000) : 0;
   return fetch(CONFIG.SCRIPT_URL + '?action=consultarPlaca&placa=' + placa, { redirect: 'follow', signal: ctl ? ctl.signal : undefined })
     .then(function(r){ return r.json(); }).then(function(res){ clearTimeout(tm); return res && res.ok && res.descricao ? res : null; }).catch(function(){ clearTimeout(tm); return null; });
