@@ -386,7 +386,7 @@ async function pTel(pre){
 async function pCpf(){
   await bot('Qual é o seu <b>CPF</b> (ou CNPJ, se for empresa)?<div class="dica">É para o seu cadastro. Se preferir, pode pular.</div>');
   var c = await perguntar({ modo: 'numeric', placeholder: '000.000.000-00', max: 18, formatar: fmtCpf, botoes: [{ t: 'Pular', v: '__pular' }],
-    validar: function(v){ var d = soDig(v); return cpfValido(d) || cnpjValido(d) ? '' : 'Esse CPF/CNPJ não parece certo. Confira os números ou toque em "Pular".'; } });
+    validar: function(v){ var d = soDig(v); return cpfValido(d) || cnpjValido(d) ? '' : 'Esse CPF/CNPJ tem algum número errado. Digite de novo, por favor.'; } });
   D.cpf = c === '__pular' ? '' : soDig(c);
 }
 async function pEndereco(){
@@ -803,6 +803,8 @@ function lerEnd(q, exigeCep){
   var g = function(c){ var i = q.querySelector('input.' + c); return i ? i.value.trim() : null; }, mal = function(c){ var i = q.querySelector('input.' + c); if (i) i.classList.add('mal'); };
   var o = { numero: g('e-num'), rua: g('e-rua'), bairro: g('e-bai'), cidade: g('e-cid'), cep: g('e-cep') }, erro = '';
   var semCep = q.querySelector('input.e-semcep'); semCep = semCep ? semCep.checked : !exigeCep;
+  var jr = !o.numero && o.rua ? /^(.*?\D)[\s,]+(?:n[ºo°.]?\s*)?(\d{1,6}[a-z]?)$/i.exec(o.rua) : null; // "Rua X 210" escrito tudo no campo da rua
+  if (jr){ o.rua = jr[1].replace(/[\s,]+$/, ''); o.numero = jr[2]; }
   if (!o.numero){ mal('e-num'); erro = 'Preencha o número (ou escreva s/n).'; }
   if (exigeCep && !semCep && soDig(o.cep).length !== 8){ mal('e-cep'); erro = erro || 'O CEP tem 8 números.'; }
   if (o.rua !== null && (semCep || !exigeCep) && o.rua.length < 3){ mal('e-rua'); erro = erro || 'Preencha a rua.'; }
@@ -830,7 +832,10 @@ function ligarQuadroEnd(){ // máscara do CEP e o "não sei meu CEP" mostrando o
         var sim = bt.dataset.v === 'sim';
         pc.querySelectorAll('button').forEach(function(x){ x.classList.remove('pri'); if (x.dataset.v === 'nao') x.classList.add('neg'); });
         if (sim){ bt.classList.add('pri'); } else { bt.classList.remove('neg'); bt.classList.add('pri'); }
-        q.querySelector('.e-com').style.display = sim ? '' : 'none'; box.style.display = sim ? 'none' : ''; q.querySelector('.e-numbox').style.display = '';
+        q.querySelector('.e-com').style.display = sim ? '' : 'none'; box.style.display = sim ? 'none' : ''; q.querySelector('.e-numbox').style.display = sim ? '' : 'none';
+        var nI = q.querySelector('input.e-num'), rI = q.querySelector('input.e-rua'); // 14/11/2026 (dono): sem CEP, o número fica ao lado da rua
+        if (sim){ nI.style.flex = ''; nI.placeholder = 'Ex.: 210, casa 2'; q.querySelector('.e-numbox .cps').appendChild(nI); }
+        else { nI.style.flex = '0 0 30%'; nI.placeholder = 'Nº'; rI.parentNode.style.flexWrap = 'nowrap'; rI.parentNode.appendChild(nI); rI.parentNode.parentNode.querySelector('b').textContent = 'Rua e número'; }
         k.checked = !sim; if (c){ c.disabled = !sim; if (!sim) c.value = ''; }
         env.disabled = false; env.style.opacity = '';
         var f1 = q.querySelector(sim ? 'input.e-cep' : 'input.e-rua'); if (f1) setTimeout(function(){ f1.focus(); }, 50);
@@ -855,8 +860,7 @@ async function quadroEndereco(){
     }
     if (g && g.rua){
       E.lat = Math.round(p.lat * 1e6) / 1e6; E.lon = Math.round(p.lon * 1e6) / 1e6; E.cep = g.cep ? fmtCep(g.cep) : '';
-      var corpo = '<div class="lin"><b>Rua</b><div class="cps">' + campoEnd('e-rua', 'Rua', g.rua) + '</div></div>'
-        + '<div class="lin"><b>Número (confira) e complemento</b><div class="cps">' + campoEnd('e-num', 'Ex.: 210, casa 2', g.numero, ' maxlength="60"') + '</div></div>'
+      var corpo = '<div class="lin"><b>Rua e número</b><div class="cps" style="flex-wrap:nowrap">' + campoEnd('e-rua', 'Rua', g.rua) + campoEnd('e-num', 'Nº', g.numero, ' maxlength="60" style="flex:0 0 30%"') + '</div></div>'
         + '<div class="lin"><b>Bairro e cidade</b><div class="cps">' + campoEnd('e-bai', 'Bairro', g.bairro) + campoEnd('e-cid', 'Cidade', g.cidade) + '</div></div>';
       ligarQuadroEnd();
       var r1 = await quadro('Confira o endereço', 'Achei pela sua localização. Confira o <b>número</b> e corrija o que precisar.', corpo, function(q){ return lerEnd(q, false); });
@@ -936,8 +940,7 @@ function editarTexto(el, l, campo){
   };
 }
 async function editarEndereco(el){
-  var corpo = '<div class="lin"><b>Rua</b><div class="cps">' + campoEnd('e-rua', 'Rua', DADOS.rua) + '</div></div>'
-    + '<div class="lin"><b>Número e complemento</b><div class="cps">' + campoEnd('e-num', 'Ex.: 210, casa 2', DADOS.numero, ' maxlength="60"') + '</div></div>'
+  var corpo = '<div class="lin"><b>Rua e número</b><div class="cps" style="flex-wrap:nowrap">' + campoEnd('e-rua', 'Rua', DADOS.rua) + campoEnd('e-num', 'Nº', DADOS.numero, ' maxlength="60" style="flex:0 0 30%"') + '</div></div>'
     + '<div class="lin"><b>Bairro e cidade</b><div class="cps">' + campoEnd('e-bai', 'Bairro', DADOS.bairro) + campoEnd('e-cid', 'Cidade', DADOS.cidade) + '</div></div>'
     + '<div class="lin"><b>CEP (se souber)</b><div class="cps">' + campoEnd('e-cep', '00000-000', DADOS.cep ? fmtCep(DADOS.cep) : '', ' inputmode="numeric" maxlength="9"') + '</div></div>';
   ligarQuadroEnd();
@@ -982,7 +985,7 @@ async function dadosIniciais(pre){
   // CPF ou CNPJ
   q = 'Qual é o seu CPF ou CNPJ? (opcional)'; await bot('Qual é o seu <b>CPF ou CNPJ</b>? (opcional)');
   v = await perguntar({ modo: 'numeric', placeholder: 'Só os números', max: 18, formatar: fmtCpf, botoes: [{ t: 'Pular', v: '__pular' }],
-    validar: function(x){ var d = soDig(x); return cpfValido(d) || cnpjValido(d) ? '' : 'Esse CPF/CNPJ não parece certo. Confira os números ou toque em "Pular".'; } });
+    validar: function(x){ var d = soDig(x); return cpfValido(d) || cnpjValido(d) ? '' : 'Esse CPF/CNPJ tem algum número errado. Digite de novo, por favor.'; } });
   if (v === '__pular'){ DADOS.cpf = ''; DADOS.semCpf = true; HIST.push({ r: 'b', t: q }, { r: 'u', t: 'Pular' }); }
   else { DADOS.cpf = soDig(v); DADOS.semCpf = false; var bc = ultimoEu(); if (bc) bc.textContent = fmtCpf(DADOS.cpf); editavel(bc, 'cpf'); HIST.push({ r: 'b', t: q }, { r: 'u', t: DADOS.cpf }); }
   progressoIA();
