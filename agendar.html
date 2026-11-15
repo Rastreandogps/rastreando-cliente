@@ -80,6 +80,7 @@ main{flex:1;overflow-y:auto;padding:16px 12px 8px;scroll-behavior:smooth}
 .botoes button.pri{background:var(--green);border-color:var(--green);color:#fff;box-shadow:0 3px 10px rgba(0,179,126,.35)}
 .botoes button.neg{background:#FFECEC;border-color:#F5A3A3;color:#C53030}
 .botoes button:active{transform:scale(.97)}
+.botoes button.leve,.botoes.grandes button.leve{flex:1 1 100%;border:0;background:none;box-shadow:none;color:var(--text3);font-weight:500;font-size:14px;padding:6px}
 /* 13/11/2026 (dono): pergunta só de botão -> some a barra de escrever e os botões ficam grandes */
 footer.soBotao{display:none}
 .botoes.grandes{align-self:stretch;max-width:none;justify-content:center;gap:10px;margin-top:4px}
@@ -100,6 +101,7 @@ footer.soBotao{display:none}
 .qd h3{margin:0 0 6px;font:700 19px Sora,Inter,sans-serif;color:var(--navy)}.qd .sub{font-size:13.5px;color:var(--text2);margin:0 0 12px}
 .qd .lin{border:1px solid var(--border);border-radius:12px;padding:10px 12px;margin-bottom:10px}
 .qd .lin b{display:block;font-size:13px;color:var(--text3);margin-bottom:6px;font-weight:600}
+.qd .vrm{float:right;border:0;background:none;color:#C53030;font:500 12.5px Inter,sans-serif;cursor:pointer;padding:0}.qd .vadd{width:100%;margin:2px 0 12px;border:1.5px dashed var(--navy2);background:#fff;color:var(--navy2);border-radius:12px;padding:11px;font:600 14.5px Inter,sans-serif;cursor:pointer}
 .qd .cps{display:flex;gap:8px;flex-wrap:wrap}.qd input[type=text],.qd input[type=date]{flex:1;min-width:0;border:1.5px solid var(--border);border-radius:10px;padding:11px 12px;font:16px Inter,sans-serif;background:#F8FAFC;outline:none}
 .qd input.placa{text-transform:uppercase;letter-spacing:.06em;font-weight:600}.qd input.ano{flex:0 0 92px}.qd input:focus{border-color:var(--navy2);background:#fff}.qd input.mal{border-color:var(--danger);background:#FFF5F5}
 .qd label.ck{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--text2);margin-top:8px}.qd label.ck input{width:20px;height:20px}
@@ -210,7 +212,7 @@ function perguntar(op){
     if (op.botoes && op.botoes.length){
       var b = document.createElement('div'); b.className = 'botoes';
       op.botoes.forEach(function(x){
-        var bt = document.createElement('button'); bt.type = 'button'; bt.textContent = x.t; if (x.pri) bt.className = 'pri'; else if (x.neg) bt.className = 'neg'; // 13/11: respostas negativas em vermelho claro
+        var bt = document.createElement('button'); bt.type = 'button'; bt.textContent = x.t; if (x.pri) bt.className = 'pri'; else if (x.neg) bt.className = 'neg'; else if (x.leve) bt.className = 'leve'; // 13/11: respostas negativas em vermelho claro
         bt.onclick = function(){ responder(x.v, x.t, true); }; b.appendChild(bt);
       });
       wrap.appendChild(b); _botoesEl = b; rolar();
@@ -673,13 +675,14 @@ function quadro(titulo, sub, corpoHtml, ler){
     setTimeout(function(){ var p = q.querySelector('input:not([disabled])'); if (p && !('ontouchstart' in window)) p.focus(); }, 80);
   });
 }
-async function quadroVeiculos(n){
+async function quadroVeiculos(n, podeQtd){
   var mx = new Date().getFullYear() + 1;
   while (true){ // 13/11/2026 (dono): "Voltar" em qualquer quadro daqui volta para "Você sabe a placa?"
   var linhas = '';
   // 13/11/2026 (dono): primeiro pergunta se sabe as placas; se não, o quadro já pede modelo e ano
   await bot(n > 1 ? 'Você sabe as <b>placas dos ' + n + ' veículos</b>?' : 'Você sabe a <b>placa do veículo</b>?');
-  var sabe = await perguntar({ botoes: [{ t: 'Sim', v: 'sim', pri: 1 }, { t: 'Não sei', v: 'nao', neg: 1 }], texto: false });
+  var sabe = await perguntar({ botoes: [{ t: 'Sim', v: 'sim', pri: 1 }, { t: 'Não sei', v: 'nao', neg: 1 }].concat(podeQtd ? [{ t: '‹ Mudar a quantidade', v: 'qtd', leve: 1 }] : []), texto: false });
+  if (sabe === 'qtd') return VOLTAR; // 15/11/2026 (dono): errou a quantidade -> volta e pergunta de novo
   if (sabe !== 'sim'){
     var lm = '';
     for (var j = 0; j < n; j++) lm += '<div class="lin"><b>' + (n > 1 ? 'Veículo ' + (j + 1) : 'Veículo') + '</b><div class="cps">'
@@ -983,23 +986,30 @@ async function editarEndereco(el){
   avisoCorrecao('endereço = ' + el.textContent.replace(/\n/g, ', '));
   atualizarResumo();
 }
+async function perguntarQtdEVeiculos(){ // 15/11/2026: quantidade + veículos, podendo voltar para mudar a quantidade
+  while (true){
+    await bot('<b>Quantos veículos vão receber o rastreador?</b>');
+    var q = await perguntar({ botoes: [{ t: '1', v: '1' }, { t: '2', v: '2' }, { t: '3', v: '3' }, { t: '4 ou mais', v: 'mais' }], texto: false }), n = +q;
+    if (q === 'mais'){
+      await bot('Quantos são? Digite o número.');
+      n = +soDig(await perguntar({ modo: 'numeric', placeholder: 'Ex.: 5', max: 2, validar: function(x){ var y = +soDig(x); return y >= 1 && y <= 30 ? '' : 'Digite só o número de veículos (ex.: 5).'; } }));
+    }
+    BAL.qt = ultimoEu(); if (BAL.qt) delete BAL.qt.dataset.ed;
+    var nAntes = wrap.querySelectorAll('.msg.me').length;
+    var vs = await quadroVeiculos(n, true);
+    if (vs === VOLTAR) continue;
+    DADOS.veiculos = vs.map(function(x){ return { placa: x.placa, modelo: x.modelo, ano: x.ano, gnv: x.gnv, rastreio: x.rastreio, tipo: x.tipo || '', comb: x.comb || '' }; });
+    marcarVeics(nAntes); editavelFn(BAL.qt, editarVeiculos);
+    return vs;
+  }
+}
 async function enderecoEVeiculos(){
   var en = await quadroEndereco();
   ['cep','rua','numero','bairro','cidade','lat','lon'].forEach(function(k){ DADOS[k] = en[k]; });
   DADOS.cep = soDig(en.cep); editavel(ultimoEu(), 'end');
   HIST.push({ r: 'b', t: 'Você está agora no endereço onde será feita a instalação?' }, { r: 'u', t: '(endereço preenchido no quadro: ' + en.rua + ', ' + en.numero + ' – ' + en.bairro + ' – ' + en.cidade + (en.cep ? ', CEP ' + en.cep : '') + (en.lat ? ', com localização do celular' : '') + ')' });
   progressoIA();
-  await bot('<b>Quantos veículos vão receber o rastreador?</b>');
-  var q = await perguntar({ botoes: [{ t: '1', v: '1' }, { t: '2', v: '2' }, { t: '3', v: '3' }, { t: '4 ou mais', v: 'mais' }], texto: false }), n = +q;
-  if (q === 'mais'){
-    await bot('Quantos são? Digite o número.');
-    n = +soDig(await perguntar({ modo: 'numeric', placeholder: 'Ex.: 5', max: 2, validar: function(v){ var x = +soDig(v); return x >= 1 && x <= 30 ? '' : 'Digite só o número de veículos (ex.: 5).'; } }));
-  }
-  HIST.push({ r: 'b', t: 'Quantos veículos vão receber o rastreador?' }, { r: 'u', t: n === 1 ? 'É 1 veículo.' : 'São ' + n + ' veículos.' });
-  var nAntes = wrap.querySelectorAll('.msg.me').length;
-  var vs = await quadroVeiculos(n);
-  DADOS.veiculos = vs.map(function(v){ return { placa: v.placa, modelo: v.modelo, ano: v.ano, gnv: v.gnv, rastreio: v.rastreio, tipo: v.tipo || '', comb: v.comb || '' }; });
-  marcarVeics(nAntes);
+  var vs = await perguntarQtdEVeiculos();
   HIST.push({ r: 'u', t: '(veículos preenchidos no quadro: ' + vs.map(function(v, k){ return (k + 1) + ') ' + v.modelo + ' ' + v.ano + (v.placa ? ' placa ' + v.placa : ' sem placa') + ', GNV ' + v.gnv + ', ' + v.rastreio + ' bloqueio'; }).join('; ') + ')' });
   progressoIA();
 }
@@ -1143,16 +1153,7 @@ async function corrigirCampo(campo){
     ['cep','rua','numero','bairro','cidade','lat','lon'].forEach(function(k){ DADOS[k] = en[k]; });
     DADOS.cep = soDig(en.cep); editavel(ultimoEu(), 'end');
   } else if (campo === 'vei'){
-    await bot('<b>Quantos veículos vão receber o rastreador?</b>');
-    var q = await perguntar({ botoes: [{ t: '1', v: '1' }, { t: '2', v: '2' }, { t: '3', v: '3' }, { t: '4 ou mais', v: 'mais' }], texto: false }), n = +q;
-    if (q === 'mais'){
-      await bot('Quantos são? Digite o número.');
-      n = +soDig(await perguntar({ modo: 'numeric', placeholder: 'Ex.: 5', max: 2, validar: function(x){ var y = +soDig(x); return y >= 1 && y <= 30 ? '' : 'Digite só o número de veículos (ex.: 5).'; } }));
-    }
-    var nAntes = wrap.querySelectorAll('.msg.me').length;
-    var vs = await quadroVeiculos(n);
-    DADOS.veiculos = vs.map(function(x){ return { placa: x.placa, modelo: x.modelo, ano: x.ano, gnv: x.gnv, rastreio: x.rastreio, tipo: x.tipo || '', comb: x.comb || '' }; });
-    marcarVeics(nAntes);
+    await perguntarQtdEVeiculos();
   }
 }
 function marcarVeics(nAntes){ // acha, entre as respostas da etapa dos veículos, o balão das placas e o último (bloqueio)
@@ -1192,44 +1193,77 @@ function textoVeics(){
   if (BAL.bl) BAL.bl.textContent = n === 1 ? (vs[0].rastreio === 'com' ? 'Com bloqueio' : 'Sem bloqueio') + (vs[0].gnv === 'sim' ? ' · tem GNV' : '')
     : vs.map(function(v, k){ return (k + 1) + ') ' + (v.rastreio === 'com' ? 'com bloqueio' : 'sem bloqueio') + (v.gnv === 'sim' ? ' · GNV' : ''); }).join('\n');
 }
+function linhaVeic(k, v, nv){
+  return '<div class="lin vrow" data-k="' + k + '"><b>' + (nv ? 'Novo veículo' : 'Veículo') + '<button type="button" class="vrm" aria-label="Remover">✕ remover</button></b>'
+    + (v.modelo ? '<div class="vmod">' + esc(v.modelo + (v.ano && String(v.modelo).indexOf(v.ano) < 0 ? ' ' + v.ano : '')) + '</div>' : '')
+    + '<div class="cps"><input type="text" class="placa" placeholder="Placa (ABC1D23)" maxlength="7" autocapitalize="characters" autocomplete="off" value="' + esc(v.placa || '') + '"></div>'
+    + (!semPergGnv(v) ? botaoDuplo('g', k, ['nao', 'Não tem'], ['sim', 'Tem'], v.gnv === 'sim' ? 'sim' : 'nao') : '') + botaoDuplo('b', k, ['com', 'Com'], ['sem', 'Sem'], v.rastreio === 'sem' ? 'sem' : 'com') + '</div>';
+}
+async function modeloEAno(placa){
+  var mx = new Date().getFullYear() + 1;
+  return quadro(placa ? 'Qual é o modelo e o ano do veículo <span style="background:#FFF4CC;padding:1px 8px;border-radius:6px;letter-spacing:.04em">' + esc(placa) + '</span>?' : 'Qual é o modelo e o ano do veículo novo?', placa ? 'Não encontrei pela placa.' : '',
+    '<div class="lin"><div class="cps"><input type="text" class="mod" placeholder="Modelo (ex.: Fiat Uno, Honda CG 160)" maxlength="60"><input type="text" class="ano" placeholder="Ano" inputmode="numeric" maxlength="4"></div></div>', function(q){
+      var m = q.querySelector('input.mod'), a2 = q.querySelector('input.ano'), mv = m.value.trim(), av = soDig(a2.value);
+      if (mv.length < 2){ m.classList.add('mal'); return { erro: 'Escreva o modelo.' }; }
+      if (!(+av >= 1980 && +av <= mx)){ a2.classList.add('mal'); return { erro: 'Escreva o ano com 4 números (ex.: 2020).' }; }
+      return { v: { modelo: mv, ano: av } };
+    });
+}
+/* 15/11/2026 (dono): o mesmo quadro corrige placa, GNV, bloqueio e a QUANTIDADE (adicionar / remover veículo) */
 async function editarVeiculos(){
   var vs = DADOS.veiculos || []; if (!vs.length) return;
-  var n = vs.length, mx = new Date().getFullYear() + 1;
-  var corpo = vs.map(function(v, k){
-    return '<div class="lin"><b>' + (n > 1 ? 'Veículo ' + (k + 1) : 'Veículo') + '</b><div class="vmod">' + esc(v.modelo + (v.ano && String(v.modelo).indexOf(v.ano) < 0 ? ' ' + v.ano : '')) + '</div>'
-      + '<div class="cps"><input type="text" class="placa" data-i="' + k + '" placeholder="Placa (ABC1D23)" maxlength="7" autocapitalize="characters" autocomplete="off" value="' + esc(v.placa || '') + '"></div>'
-      + (!semPergGnv(v) ? botaoDuplo('g', k, ['nao', 'Não tem'], ['sim', 'Tem'], v.gnv === 'sim' ? 'sim' : 'nao') : '') + botaoDuplo('b', k, ['com', 'Com'], ['sem', 'Sem'], v.rastreio === 'sem' ? 'sem' : 'com') + '</div>';
-  }).join('');
-  ligarTgl();
-  var r = await quadro(n > 1 ? 'Corrigir os veículos' : 'Corrigir o veículo', 'Mude a placa ou toque no que for diferente.', corpo, function(q){
-    var erro = '', o = vs.map(function(v){ return { placa: v.placa || '', gnv: v.gnv || 'nao', rastreio: v.rastreio || 'com' }; });
-    q.querySelectorAll('input.placa').forEach(function(i){ var k = +i.dataset.i, pl = i.value.trim().toUpperCase(); if (pl && !REGEX_PLACA.test(pl)){ i.classList.add('mal'); erro = 'Confira a placa destacada (ex.: ABC1D23).'; } o[k].placa = pl; });
-    q.querySelectorAll('.tgl').forEach(function(t){ var k = +t.dataset.i; if (t.dataset.c === 'g') o[k].gnv = t.dataset.v; else o[k].rastreio = t.dataset.v; });
+  var corpo = '<div class="vlista">' + vs.map(function(v, k){ return linhaVeic(k, v, false); }).join('') + '</div><button type="button" class="vadd">+ Adicionar veículo</button>';
+  setTimeout(function(){
+    var q = document.querySelector('.qd'); if (!q) return;
+    var ligar = function(){
+      q.querySelectorAll('.tgl').forEach(function(t){ t.querySelectorAll('button').forEach(function(bt){ bt.onclick = function(){ t.dataset.v = bt.dataset.v; t.querySelectorAll('button').forEach(function(o){ o.classList.toggle('on', o === bt); }); }; }); });
+      q.querySelectorAll('.vrm').forEach(function(b){ b.onclick = function(){ if (q.querySelectorAll('.vrow').length <= 1){ q.querySelector('.qerro').textContent = 'Precisa ficar pelo menos 1 veículo.'; return; } b.closest('.vrow').remove(); }; });
+      q.querySelectorAll('input.placa').forEach(function(i){ if (i.dataset.lg) return; i.dataset.lg = 1; i.addEventListener('input', function(){ i.value = fmtPlaca(i.value); i.classList.remove('mal'); }); });
+    };
+    ligar();
+    q.querySelector('.vadd').onclick = function(){
+      if (q.querySelectorAll('.vrow').length >= 30) return;
+      var d = document.createElement('div'); d.innerHTML = linhaVeic(-1, { placa: '', modelo: '', gnv: 'nao', rastreio: 'com' }, true); q.querySelector('.vlista').appendChild(d.firstChild); ligar();
+      var np = q.querySelectorAll('input.placa'); np = np[np.length - 1]; try { np.scrollIntoView({ block: 'center' }); } catch (e) {}
+    };
+  }, 40);
+  var r = await quadro('Corrigir os veículos', 'Mude a placa, toque no que for diferente, adicione ou remova um veículo.', corpo, function(q){
+    var erro = '', o = [];
+    q.querySelectorAll('.vrow').forEach(function(row){
+      var i = row.querySelector('input.placa'), pl = i.value.trim().toUpperCase(), it = { k: +row.dataset.k, placa: pl, gnv: 'nao', rastreio: 'com' };
+      if (pl && !REGEX_PLACA.test(pl)){ i.classList.add('mal'); erro = 'Confira a placa destacada (ex.: ABC1D23).'; }
+      row.querySelectorAll('.tgl').forEach(function(t){ if (t.dataset.c === 'g') it.gnv = t.dataset.v; else it.rastreio = t.dataset.v; });
+      o.push(it);
+    });
     return erro ? { erro: erro } : { v: o };
   });
   if (r === VOLTAR) return;
-  for (var k = 0; k < n; k++){
-    var v = vs[k], nv = r[k];
-    v.gnv = nv.gnv; v.rastreio = nv.rastreio;
-    if (nv.placa && nv.placa !== (v.placa || '')){ // placa nova: consulta de novo
-      var dg = digitandoLiga(), res = null; try { res = await buscarPlaca(nv.placa); } catch (e) {} dg.remove();
-      v.placa = nv.placa;
+  var nova = [];
+  for (var x = 0; x < r.length; x++){
+    var it = r[x], v = it.k >= 0 && vs[it.k] ? JSON.parse(JSON.stringify(vs[it.k])) : { placa: '', modelo: '', ano: '', tipo: '', comb: '' };
+    v.gnv = it.gnv; v.rastreio = it.rastreio;
+    if (it.placa && it.placa !== (v.placa || '')){ // placa nova ou trocada: consulta
+      var dg = digitandoLiga(), res = null; try { res = await buscarPlaca(it.placa); } catch (e) {} dg.remove();
       if (res && res.descricao){
-        v.modelo = res.descricao + (res.dados && res.dados.cor ? ' ' + res.dados.cor : ''); v.tipo = String((res.dados && res.dados.tipo_veiculo) || ''); v.comb = String((res.dados && res.dados.combustivel) || '');
-        v.ano = String((res.dados && (res.dados.ano_modelo || res.dados.ano_fabricacao)) || v.ano || '');
-        if (semPergGnv(v)) v.gnv = 'nao'; else if (combTemGnv(v.comb)) v.gnv = 'sim';
+        v.placa = it.placa; v.modelo = res.descricao + (res.dados && res.dados.cor ? ' ' + res.dados.cor : ''); v.tipo = String((res.dados && res.dados.tipo_veiculo) || ''); v.comb = String((res.dados && res.dados.combustivel) || '');
+        v.ano = String((res.dados && (res.dados.ano_modelo || res.dados.ano_fabricacao)) || '');
+        if (combTemGnv(v.comb)) v.gnv = 'sim';
+        if (!v.ano){ var ca = await modeloEAno(it.placa); if (ca !== VOLTAR) v.ano = ca.ano; }
       } else {
-        var c2 = await quadro('Qual é o modelo e o ano do veículo <span style="background:#FFF4CC;padding:1px 8px;border-radius:6px;letter-spacing:.04em">' + esc(nv.placa) + '</span>?', 'Não encontrei pela placa.',
-          '<div class="lin"><div class="cps"><input type="text" class="mod" placeholder="Modelo (ex.: Fiat Uno, Honda CG 160)" maxlength="60"><input type="text" class="ano" placeholder="Ano" inputmode="numeric" maxlength="4"></div></div>', function(q){
-            var m = q.querySelector('input.mod'), a2 = q.querySelector('input.ano'), mv = m.value.trim(), av = soDig(a2.value);
-            if (mv.length < 2){ m.classList.add('mal'); return { erro: 'Escreva o modelo.' }; }
-            if (!(+av >= 1980 && +av <= mx)){ a2.classList.add('mal'); return { erro: 'Escreva o ano com 4 números (ex.: 2020).' }; }
-            return { v: { modelo: mv, ano: av } };
-          });
-        if (c2 !== VOLTAR){ v.modelo = c2.modelo; v.ano = c2.ano; v.tipo = ''; v.comb = ''; }
+        var c2 = await modeloEAno(it.placa);
+        if (c2 === VOLTAR){ if (it.k < 0) continue; } // desistiu: veículo novo não entra; o antigo fica com a placa antiga
+        else { v.placa = it.placa; v.modelo = c2.modelo; v.ano = c2.ano; v.tipo = ''; v.comb = ''; }
       }
-    } else if (!nv.placa && v.placa){ v.placa = ''; }
+    } else if (!it.placa){
+      v.placa = '';
+      if (!v.modelo){ var c3 = await modeloEAno(''); if (c3 === VOLTAR) continue; v.modelo = c3.modelo; v.ano = c3.ano; }
+    }
+    if (semPergGnv(v)) v.gnv = 'nao';
+    nova.push(v);
   }
+  if (!nova.length) return;
+  DADOS.veiculos = nova;
+  if (BAL.qt) BAL.qt.textContent = String(nova.length);
   textoVeics(); atualizarResumo();
 }
 async function diaEPeriodo(){ await pData(); DADOS.data = D.data; DADOS.periodo = D.periodo; editavelFn(BAL.dia, editarDia); editavelFn(BAL.per, editarDia); }
