@@ -100,6 +100,11 @@ footer.soBotao{display:none}
 .qd .qvolta{display:inline-flex;align-items:center;gap:4px;border:0;background:#F1F4F8;color:var(--navy);font:600 14px Inter,sans-serif;padding:7px 13px 7px 10px;border-radius:999px;margin:0 0 10px;cursor:pointer}.qd .qvolta:active{transform:scale(.97)}
 .qd h3{margin:0 0 6px;font:700 19px Sora,Inter,sans-serif;color:var(--navy)}.qd .sub{font-size:13.5px;color:var(--text2);margin:0 0 12px}
 .qd .lin{border:1px solid var(--border);border-radius:12px;padding:10px 12px;margin-bottom:10px}
+/* 15/11/2026 (dono): cada veículo num bloco bem separado */
+.qd .lin.vbl{background:#F4F7FC;border:1.5px solid #C9D5E8;border-left:6px solid var(--navy2);border-radius:14px;padding:13px 14px 12px;margin-bottom:18px;box-shadow:0 3px 10px rgba(27,58,107,.10)}
+.qd .lin.vbl b{color:var(--navy);font-size:13px;letter-spacing:.03em;text-transform:uppercase}
+.qd .lin.vbl .vmod{border-bottom:1px dashed #C9D5E8;padding-bottom:9px;margin-bottom:2px}
+.qd .lin.vbl .tgb{background:#DFE6F1}.qd .lin.vbl input.placa{background:#fff}
 .qd .lin b{display:block;font-size:13px;color:var(--text3);margin-bottom:6px;font-weight:600}
 .qd .vrm{float:right;border:0;background:none;color:#C53030;font:500 12.5px Inter,sans-serif;cursor:pointer;padding:0}.qd .vadd{width:100%;margin:2px 0 12px;border:1.5px dashed var(--navy2);background:#fff;color:var(--navy2);border-radius:12px;padding:11px;font:600 14.5px Inter,sans-serif;cursor:pointer}
 .qd .cps{display:flex;gap:8px;flex-wrap:wrap}.qd input[type=text],.qd input[type=date]{flex:1;min-width:0;border:1.5px solid var(--border);border-radius:10px;padding:11px 12px;font:16px Inter,sans-serif;background:#F8FAFC;outline:none}
@@ -768,7 +773,7 @@ function botaoDuplo(cls, k, a, b, ini){ return '<div class="tgl" data-c="' + cls
   + '<button type="button" data-v="' + a[0] + '"' + (ini === a[0] ? ' class="on"' : '') + '>' + a[1] + '</button><button type="button" data-v="' + b[0] + '"' + (ini === b[0] ? ' class="on"' : '') + '>' + b[1] + '</button></span></div>'; }
 async function quadroGnvBloqueio(base, n){
   var h = base.map(function(x, k){ var temG = !semPergGnv(x);
-    return '<div class="lin"><b>Veículo ' + (k + 1) + (x.placa ? ' · ' + esc(x.placa) : '') + '</b><div class="vmod">' + esc(x.modelo + (x.ano && String(x.modelo).indexOf(x.ano) < 0 ? ' ' + x.ano : '')) + (ehMoto(x.modelo, x.tipo) ? ' 🏍️' : '') + '</div>'
+    return '<div class="lin vbl"><b>Veículo ' + (k + 1) + (x.placa ? ' · ' + esc(x.placa) : '') + '</b><div class="vmod">' + esc(x.modelo + (x.ano && String(x.modelo).indexOf(x.ano) < 0 ? ' ' + x.ano : '')) + (ehMoto(x.modelo, x.tipo) ? ' 🏍️' : '') + '</div>'
       + (temG ? botaoDuplo('g', k, ['nao', 'Não tem'], ['sim', 'Tem'], x.gnvDef === 'sim' ? 'sim' : 'nao') : '') + botaoDuplo('b', k, ['com', 'Com'], ['sem', 'Sem'], 'com') + '</div>'; }).join('');
   setTimeout(function(){ document.querySelectorAll('.qd .tgl').forEach(function(t){ t.querySelectorAll('button').forEach(function(bt){ bt.onclick = function(){ t.dataset.v = bt.dataset.v; t.querySelectorAll('button').forEach(function(o){ o.classList.toggle('on', o === bt); }); }; }); }); }, 40);
   return quadro('Confira os veículos', 'Toque para mudar o que for diferente.', h, function(q){
@@ -1201,7 +1206,7 @@ function textoVeics(){
     : vs.map(function(v, k){ return (k + 1) + ') ' + (v.rastreio === 'com' ? 'com bloqueio' : 'sem bloqueio') + (v.gnv === 'sim' ? ' · GNV' : ''); }).join('\n');
 }
 function linhaVeic(k, v, nv){
-  return '<div class="lin vrow" data-k="' + k + '"><b>' + (nv ? 'Novo veículo' : 'Veículo') + '<button type="button" class="vrm" aria-label="Remover">✕ remover</button></b>'
+  return '<div class="lin vrow vbl" data-k="' + k + '"><b>' + (nv ? 'Novo veículo' : 'Veículo') + '<button type="button" class="vrm" aria-label="Remover">✕ remover</button></b>'
     + (v.modelo ? '<div class="vmod">' + esc(v.modelo + (v.ano && String(v.modelo).indexOf(v.ano) < 0 ? ' ' + v.ano : '')) + '</div>' : '')
     + '<div class="cps"><input type="text" class="placa" placeholder="Placa (ABC1D23)" maxlength="7" autocapitalize="characters" autocomplete="off" value="' + esc(v.placa || '') + '"></div>'
     + (!semPergGnv(v) ? botaoDuplo('g', k, ['nao', 'Não tem'], ['sim', 'Tem'], v.gnv === 'sim' ? 'sim' : 'nao') : '') + botaoDuplo('b', k, ['com', 'Com'], ['sem', 'Sem'], v.rastreio === 'sem' ? 'sem' : 'com') + '</div>';
