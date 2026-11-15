@@ -100,6 +100,10 @@ footer.soBotao{display:none}
 .qd .qvolta{display:inline-flex;align-items:center;gap:4px;border:0;background:#F1F4F8;color:var(--navy);font:600 14px Inter,sans-serif;padding:7px 13px 7px 10px;border-radius:999px;margin:0 0 10px;cursor:pointer}.qd .qvolta:active{transform:scale(.97)}
 .qd h3{margin:0 0 6px;font:700 19px Sora,Inter,sans-serif;color:var(--navy)}.qd .sub{font-size:13.5px;color:var(--text2);margin:0 0 12px}
 .qd .lin{border:1px solid var(--border);border-radius:12px;padding:10px 12px;margin-bottom:10px}
+/* 15/11/2026 (dono): ao abrir o quadro, as chaves (Tem/Não tem, Com/Sem) piscam a borda em vermelho 3 vezes */
+@keyframes piscaChave{0%,100%{box-shadow:0 0 0 0 rgba(229,62,62,0)}50%{box-shadow:0 0 0 3px #E53E3E}}
+.qd .tgb{animation:piscaChave .42s ease-in-out .45s 3}
+@media (prefers-reduced-motion:reduce){.qd .tgb{animation:none}}
 /* 15/11/2026 (dono): cada veículo num bloco bem separado */
 .qd .lin.vbl{background:#F4F7FC;border:1.5px solid #C9D5E8;border-left:6px solid var(--navy2);border-radius:14px;padding:13px 14px 12px;margin-bottom:18px;box-shadow:0 3px 10px rgba(27,58,107,.10)}
 .qd .lin.vbl b{color:var(--navy);font-size:13px;letter-spacing:.03em;text-transform:uppercase}
