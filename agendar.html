@@ -108,7 +108,7 @@ footer.soBotao{display:none}
 .qd .lin.vbl{background:#F4F7FC;border:1.5px solid #C9D5E8;border-left:6px solid var(--navy2);border-radius:14px;padding:13px 14px 12px;margin-bottom:18px;box-shadow:0 3px 10px rgba(27,58,107,.10)}
 .qd .lin.vbl b{color:var(--navy);font-size:13px;letter-spacing:.03em;text-transform:uppercase}
 .qd .lin.vbl .vmod{border-bottom:1px dashed #C9D5E8;padding-bottom:9px;margin-bottom:2px}
-.qd .lin.vbl .tgb{background:#DFE6F1}.qd .lin.vbl input.placa{background:#fff}
+.qd .lin.vbl .tgb{background:#DFE6F1}.qd .lin.vbl input.placa,.qd .lin.vbl input.mod,.qd .lin.vbl input.ano{background:#fff}
 .qd .lin b{display:block;font-size:13px;color:var(--text3);margin-bottom:6px;font-weight:600}
 .qd .vrm{float:right;border:1px solid #F5A3A3;background:#FFF5F5;color:#C53030;font:600 12.5px Inter,sans-serif;cursor:pointer;padding:5px 10px;border-radius:999px;margin:-4px 0 0 8px;text-transform:none;letter-spacing:0}.qd .vadd{width:100%;margin:2px 0 14px;border:1.5px dashed var(--navy2);background:#fff;color:var(--navy2);border-radius:12px;padding:11px;font:600 14.5px Inter,sans-serif;cursor:pointer}
 .qd .cps{display:flex;gap:8px;flex-wrap:wrap}.qd input[type=text],.qd input[type=date]{flex:1;min-width:0;border:1.5px solid var(--border);border-radius:10px;padding:11px 12px;font:16px Inter,sans-serif;background:#F8FAFC;outline:none}
@@ -693,10 +693,10 @@ async function quadroVeiculos(n, podeQtd){
   var mx = new Date().getFullYear() + 1;
   /* 15/11/2026 (dono): "+ Adicionar veículo" já na primeira vez (sem lixeira; excluir só na correção). Cada toque cria mais uma linha e aumenta n. */
   var BOTAO_MAIS = '<button type="button" class="vadd">+ Adicionar veículo</button>';
-  var linhaMod = function(j, varios){ return '<div class="lin"><b>' + (varios ? 'Veículo ' + (j + 1) : 'Veículo') + '</b><div class="cps">'
+  var linhaMod = function(j, varios){ return '<div class="lin vbl"><b>' + (varios ? 'Veículo ' + (j + 1) : 'Veículo') + '</b><div class="cps">'
       + '<input type="text" class="mod" data-i="' + j + '" placeholder="Modelo (ex.: Fiat Uno, Honda CG 160)" maxlength="60">'
       + '<input type="text" class="ano" data-i="' + j + '" placeholder="Ano" inputmode="numeric" maxlength="4"></div></div>'; };
-  var linhaPlaca = function(i, varios){ return '<div class="lin"><b>' + (varios ? 'Veículo ' + (i + 1) : 'Veículo') + '</b><div class="cps">'
+  var linhaPlaca = function(i, varios){ return '<div class="lin vbl"><b>' + (varios ? 'Veículo ' + (i + 1) : 'Veículo') + '</b><div class="cps">'
       + '<input type="text" class="placa" data-i="' + i + '" placeholder="Placa (ABC1D23)" maxlength="7" autocapitalize="characters" autocomplete="off"></div>'
       + '<label class="ck"><input type="checkbox" class="semp" data-i="' + i + '"> Ainda não tem placa</label></div>'; };
   var ligarMais = function(linhaFn, tituloFn){ setTimeout(function(){
@@ -764,7 +764,7 @@ async function quadroVeiculos(n, podeQtd){
   var falta = base.map(function(x, k){ return k; }).filter(function(k){ return !base[k].modelo || !base[k].ano; });
   if (falta.length){
     var l2 = falta.map(function(k){ var x = base[k];
-      return '<div class="lin"><b>' + (n > 1 ? 'Veículo ' + (k + 1) : 'Veículo') + (x.placa ? ' · <span style="color:var(--navy);font-size:15px;letter-spacing:.04em">' + esc(x.placa) + '</span>' : '') + '</b>'
+      return '<div class="lin vbl"><b>' + (n > 1 ? 'Veículo ' + (k + 1) : 'Veículo') + (x.placa ? ' · <span style="color:var(--navy);font-size:15px;letter-spacing:.04em">' + esc(x.placa) + '</span>' : '') + '</b>'
         + (x.modelo ? '<div class="ach">✓ ' + esc(x.modelo) + '</div>' : '') + '<div class="cps">'
         + (!x.modelo ? '<input type="text" class="mod" data-i="' + k + '" placeholder="Modelo (ex.: Fiat Uno, Honda CG 160)" maxlength="60">' : '')
         + (!x.ano ? '<input type="text" class="ano" data-i="' + k + '" placeholder="Ano" inputmode="numeric" maxlength="4">' : '') + '</div>'
