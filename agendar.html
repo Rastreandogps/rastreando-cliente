@@ -691,6 +691,27 @@ function quadro(titulo, sub, corpoHtml, ler){
 }
 async function quadroVeiculos(n, podeQtd){
   var mx = new Date().getFullYear() + 1;
+  /* 15/11/2026 (dono): "+ Adicionar veículo" já na primeira vez (sem lixeira; excluir só na correção). Cada toque cria mais uma linha e aumenta n. */
+  var BOTAO_MAIS = '<button type="button" class="vadd">+ Adicionar veículo</button>';
+  var linhaMod = function(j, varios){ return '<div class="lin"><b>' + (varios ? 'Veículo ' + (j + 1) : 'Veículo') + '</b><div class="cps">'
+      + '<input type="text" class="mod" data-i="' + j + '" placeholder="Modelo (ex.: Fiat Uno, Honda CG 160)" maxlength="60">'
+      + '<input type="text" class="ano" data-i="' + j + '" placeholder="Ano" inputmode="numeric" maxlength="4"></div></div>'; };
+  var linhaPlaca = function(i, varios){ return '<div class="lin"><b>' + (varios ? 'Veículo ' + (i + 1) : 'Veículo') + '</b><div class="cps">'
+      + '<input type="text" class="placa" data-i="' + i + '" placeholder="Placa (ABC1D23)" maxlength="7" autocapitalize="characters" autocomplete="off"></div>'
+      + '<label class="ck"><input type="checkbox" class="semp" data-i="' + i + '"> Ainda não tem placa</label></div>'; };
+  var ligarMais = function(linhaFn, tituloFn){ setTimeout(function(){
+    var q = document.querySelector('.qd'), b = q && q.querySelector('.vadd'); if (!b) return;
+    b.onclick = function(){
+      if (n >= 30) return; n++;
+      var d = document.createElement('div'); d.innerHTML = linhaFn(n - 1, true); var nl = d.firstChild, ls = q.querySelectorAll('.lin'); ls[ls.length - 1].after(nl);
+      nl.querySelectorAll('input.placa').forEach(function(i){ i.addEventListener('input', function(){ i.value = fmtPlaca(i.value); i.classList.remove('mal'); }); });
+      nl.querySelectorAll('input.ano').forEach(function(i){ i.addEventListener('input', function(){ i.value = soDig(i.value).slice(0, 4); i.classList.remove('mal'); }); });
+      nl.querySelectorAll('input.semp').forEach(function(c){ c.addEventListener('change', function(){ var p2 = q.querySelector('input.placa[data-i="' + c.dataset.i + '"]'); p2.disabled = c.checked; if (c.checked){ p2.value = ''; p2.classList.remove('mal'); } }); });
+      q.querySelectorAll('.lin > b').forEach(function(el, ix){ el.textContent = 'Veículo ' + (ix + 1); });
+      q.querySelector('h3').textContent = tituloFn(n); q.querySelector('.qerro').textContent = '';
+      try { nl.scrollIntoView({ block: 'nearest' }); var ni = nl.querySelector('input[type=text]'); if (ni && !('ontouchstart' in window)) ni.focus(); } catch (e) {}
+    };
+  }, 40); };
   while (true){ // 13/11/2026 (dono): "Voltar" em qualquer quadro daqui volta para "Você sabe a placa?"
   var linhas = '';
   // 13/11/2026 (dono): primeiro pergunta se sabe as placas; se não, o quadro já pede modelo e ano
@@ -698,10 +719,9 @@ async function quadroVeiculos(n, podeQtd){
   var sabe = await perguntar({ botoes: [{ t: 'Sim', v: 'sim', pri: 1 }, { t: 'Não sei', v: 'nao', neg: 1 }].concat(podeQtd ? [{ t: '‹ Mudar a quantidade', v: 'qtd', leve: 1 }] : []), texto: false });
   if (sabe === 'qtd') return VOLTAR; // 15/11/2026 (dono): errou a quantidade -> volta e pergunta de novo
   if (sabe !== 'sim'){
-    var lm = '';
-    for (var j = 0; j < n; j++) lm += '<div class="lin"><b>' + (n > 1 ? 'Veículo ' + (j + 1) : 'Veículo') + '</b><div class="cps">'
-      + '<input type="text" class="mod" data-i="' + j + '" placeholder="Modelo (ex.: Fiat Uno, Honda CG 160)" maxlength="60">'
-      + '<input type="text" class="ano" data-i="' + j + '" placeholder="Ano" inputmode="numeric" maxlength="4"></div></div>';
+    var lm = BOTAO_MAIS, tMod = function(x){ return x > 1 ? 'Modelos dos ' + x + ' veículos' : 'Modelo do veículo'; };
+    for (var j = 0; j < n; j++) lm += linhaMod(j, n > 1);
+    ligarMais(linhaMod, tMod);
     var sp = await quadro(n > 1 ? 'Modelos dos ' + n + ' veículos' : 'Modelo do veículo', 'Escreva o modelo e o ano de cada um.', lm, function(q){
       var v = [], erro = '';
       for (var k = 0; k < n; k++){
@@ -716,11 +736,9 @@ async function quadroVeiculos(n, podeQtd){
     eu(sp.map(function(x, k){ return (n > 1 ? (k + 1) + ') ' : '') + x.modelo + ' ' + x.ano; }).join('\n'));
     var rs = await gnvBloqueio(sp, n); if (rs === VOLTAR) continue; return rs;
   }
-  for (var i = 0; i < n; i++){
-    linhas += '<div class="lin"><b>' + (n > 1 ? 'Veículo ' + (i + 1) : 'Veículo') + '</b><div class="cps">'
-      + '<input type="text" class="placa" data-i="' + i + '" placeholder="Placa (ABC1D23)" maxlength="7" autocapitalize="characters" autocomplete="off"></div>'
-      + '<label class="ck"><input type="checkbox" class="semp" data-i="' + i + '"> Ainda não tem placa</label></div>';
-  }
+  linhas = BOTAO_MAIS; var tPl = function(x){ return x > 1 ? 'Placas dos ' + x + ' veículos' : 'Placa do veículo'; };
+  for (var i = 0; i < n; i++) linhas += linhaPlaca(i, n > 1);
+  ligarMais(linhaPlaca, tPl);
   var base = await quadro(n > 1 ? 'Placas dos ' + n + ' veículos' : 'Placa do veículo', 'Mercosul (ABC1D23) ou antiga (ABC1234).', linhas, function(q){
     var v = [], erro = '';
     for (var k = 0; k < n; k++){
@@ -1015,6 +1033,7 @@ async function perguntarQtdEVeiculos(){ // 15/11/2026: quantidade + veículos, p
     var vs = await quadroVeiculos(n, true);
     if (vs === VOLTAR) continue;
     DADOS.veiculos = vs.map(function(x){ return { placa: x.placa, modelo: x.modelo, ano: x.ano, gnv: x.gnv, rastreio: x.rastreio, tipo: x.tipo || '', comb: x.comb || '' }; });
+    if (BAL.qt && vs.length !== n) BAL.qt.textContent = String(vs.length); // adicionou veículo dentro do quadro
     marcarVeics(nAntes); editavelFn(BAL.qt, editarVeiculos);
     return vs;
   }
