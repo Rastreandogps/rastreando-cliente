@@ -110,7 +110,7 @@ footer.soBotao{display:none}
 .qd .lin.vbl .vmod{border-bottom:1px dashed #C9D5E8;padding-bottom:9px;margin-bottom:2px}
 .qd .lin.vbl .tgb{background:#DFE6F1}.qd .lin.vbl input.placa{background:#fff}
 .qd .lin b{display:block;font-size:13px;color:var(--text3);margin-bottom:6px;font-weight:600}
-.qd .vrm{float:right;border:0;background:none;color:#C53030;font:500 12.5px Inter,sans-serif;cursor:pointer;padding:0}.qd .vadd{width:100%;margin:2px 0 12px;border:1.5px dashed var(--navy2);background:#fff;color:var(--navy2);border-radius:12px;padding:11px;font:600 14.5px Inter,sans-serif;cursor:pointer}
+.qd .vrm{float:right;border:1px solid #F5A3A3;background:#FFF5F5;color:#C53030;font:600 12.5px Inter,sans-serif;cursor:pointer;padding:5px 10px;border-radius:999px;margin:-4px 0 0 8px;text-transform:none;letter-spacing:0}.qd .vadd{width:100%;margin:2px 0 12px;border:1.5px dashed var(--navy2);background:#fff;color:var(--navy2);border-radius:12px;padding:11px;font:600 14.5px Inter,sans-serif;cursor:pointer}
 .qd .cps{display:flex;gap:8px;flex-wrap:wrap}.qd input[type=text],.qd input[type=date]{flex:1;min-width:0;border:1.5px solid var(--border);border-radius:10px;padding:11px 12px;font:16px Inter,sans-serif;background:#F8FAFC;outline:none}
 .qd input.placa{text-transform:uppercase;letter-spacing:.06em;font-weight:600}.qd input.ano{flex:0 0 92px}.qd input:focus{border-color:var(--navy2);background:#fff}.qd input.mal{border-color:var(--danger);background:#FFF5F5}
 .qd label.ck{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--text2);margin-top:8px}.qd label.ck input{width:20px;height:20px}
@@ -1169,7 +1169,8 @@ async function corrigirCampo(campo){
     ['cep','rua','numero','bairro','cidade','lat','lon'].forEach(function(k){ DADOS[k] = en[k]; });
     DADOS.cep = soDig(en.cep); editavel(ultimoEu(), 'end');
   } else if (campo === 'vei'){
-    await perguntarQtdEVeiculos();
+    // 15/11/2026 (dono): corrigir veículos abre os cards já preenchidos (lixeira para tirar, botão para adicionar), sem refazer tudo
+    if ((DADOS.veiculos || []).length) await editarVeiculos(); else await perguntarQtdEVeiculos();
   }
 }
 function marcarVeics(nAntes){ // acha, entre as respostas da etapa dos veículos, o balão das placas e o último (bloqueio)
@@ -1210,7 +1211,7 @@ function textoVeics(){
     : vs.map(function(v, k){ return (k + 1) + ') ' + (v.rastreio === 'com' ? 'com bloqueio' : 'sem bloqueio') + (v.gnv === 'sim' ? ' · GNV' : ''); }).join('\n');
 }
 function linhaVeic(k, v, nv){
-  return '<div class="lin vrow vbl" data-k="' + k + '"><b>' + (nv ? 'Novo veículo' : 'Veículo') + '<button type="button" class="vrm" aria-label="Remover">✕ remover</button></b>'
+  return '<div class="lin vrow vbl" data-k="' + k + '"><b>' + (nv ? 'Novo veículo' : 'Veículo') + '<button type="button" class="vrm" aria-label="Excluir este veículo">🗑️ excluir</button></b>'
     + (v.modelo ? '<div class="vmod">' + esc(v.modelo + (v.ano && String(v.modelo).indexOf(v.ano) < 0 ? ' ' + v.ano : '')) + '</div>' : '')
     + '<div class="cps"><input type="text" class="placa" placeholder="Placa (ABC1D23)" maxlength="7" autocapitalize="characters" autocomplete="off" value="' + esc(v.placa || '') + '"></div>'
     + (!semPergGnv(v) ? botaoDuplo('g', k, ['nao', 'Não tem'], ['sim', 'Tem'], v.gnv === 'sim' ? 'sim' : 'nao') : '') + botaoDuplo('b', k, ['com', 'Com'], ['sem', 'Sem'], v.rastreio === 'sem' ? 'sem' : 'com') + '</div>';
