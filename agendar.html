@@ -493,9 +493,11 @@ async function pVeiculos(){
     if (m !== 'sim') break;
   }
 }
+// 14/11/2026: tarde demais para marcar HOJE (dia útil a partir das 16h; sábado a partir das 12h) e manhã de hoje só até as 11h
+function hojeNaoDa(){ var h = new Date().getHours(); return diaSem(HOJE) === 6 ? h >= 12 : h >= 16; }
 async function pData(){
   D.data = D.periodo = '';
-  var ops = [], d = HOJE;
+  var ops = [], d = hojeNaoDa() ? addDias(HOJE, 1) : HOJE;
   while (ops.length < 4 && d <= addDias(HOJE, 20)){ if (!erroData(d) && diaSem(d) !== 0) ops.push({ t: rotuloDia(d, HOJE), v: d }); d = addDias(d, 1); }
   ops.push({ t: '📅 Outro dia', v: '__cal' });
   await bot('Qual <b>dia</b> fica melhor para a instalação?<div class="dica">Atendemos de segunda a sábado (no sábado, a tarde vai até 14h), menos feriados.</div>');
@@ -505,14 +507,16 @@ async function pData(){
       await bot('Escolha o dia no calendário aqui embaixo e toque em ➤.');
       r = await perguntar({ tipo: 'date', min: HOJE, placeholder: 'Escolha a data', validar: erroData });
     }
-    var e = erroData(r);
+    var e = erroData(r) || (r === HOJE && hojeNaoDa() ? 'Para hoje não dá mais tempo. Escolha outro dia, por favor.' : '');
     if (e){ await erroMsg(e); continue; }
     D.data = r;
     if (diaSem(r) === 0) await bot('Domingo é atendimento <b>excepcional</b>: vamos confirmar com você se temos disponibilidade nesse dia.');
     break;
   }
   await bot('E o <b>período</b>?');
-  D.periodo = await perguntar({ botoes: [{ t: 'Manhã (8h–12h)', v: 'manha' }, { t: periodoTexto('tarde', D.data), v: 'tarde' }], texto: false });
+  var pers = [{ t: 'Manhã (8h–12h)', v: 'manha' }, { t: periodoTexto('tarde', D.data), v: 'tarde' }];
+  if (D.data === HOJE && new Date().getHours() >= 11) pers.shift(); // manhã de hoje já passou
+  D.periodo = await perguntar({ botoes: pers, texto: false });
 }
 
 function resumoHtml(){
@@ -1109,6 +1113,66 @@ async function conversaIA(pre){
   }
 }
 
+/* ---------- 14/11/2026 (dono: "talvez não precise de IA"): AGENDAMENTO SEM IA nos links do robô ----------
+   A página pergunta tudo (dados, endereço, veículos, DIA e PERÍODO por botões), monta o resumo e envia.
+   A IA (conversaIA) fica guardada: para religar, trocar USAR_IA para true. */
+var USAR_IA = false;
+async function corrigirCampo(campo){
+  var v;
+  if (campo === 'nome'){
+    await bot('Qual é o seu <b>nome completo</b>?');
+    v = await perguntar({ placeholder: 'Nome e sobrenome', max: 80, validar: function(x){ x = limparNome(x); return x.split(/\s+/).length < 2 || x.length < 5 ? 'Escreva o nome e o sobrenome, por favor.' : ''; } });
+    DADOS.nome = titulo(limparNome(v)); var bn = ultimoEu(); if (bn) bn.textContent = DADOS.nome; editavel(bn, 'nome');
+  } else if (campo === 'tel'){
+    await bot('Qual é o seu <b>WhatsApp</b> com DDD?');
+    v = await perguntar({ tipo: 'tel', modo: 'tel', placeholder: '(21) 98765-4321', max: 16, formatar: fmtTel, validar: function(x){ var d = soDig(x).replace(/^55(?=\d{10,11}$)/, ''); return d.length < 10 || d.length > 11 ? 'Confira o número: são o DDD e mais 8 ou 9 dígitos.' : ''; } });
+    DADOS.tel = soDig(v).replace(/^55(?=\d{10,11}$)/, ''); var bt = ultimoEu(); if (bt) bt.textContent = fmtTel(DADOS.tel); editavel(bt, 'tel');
+  } else if (campo === 'cpf'){
+    await bot('Qual é o seu <b>CPF ou CNPJ</b>? (opcional)');
+    v = await perguntar({ modo: 'numeric', placeholder: 'Só os números', max: 18, formatar: fmtCpf, botoes: [{ t: 'Pular', v: '__pular' }],
+      validar: function(x){ var d = soDig(x); return cpfValido(d) || cnpjValido(d) ? '' : 'Esse CPF/CNPJ tem algum número errado. Digite de novo, por favor.'; } });
+    if (v === '__pular'){ DADOS.cpf = ''; DADOS.semCpf = true; }
+    else { DADOS.cpf = soDig(v); DADOS.semCpf = false; var bc = ultimoEu(); if (bc) bc.textContent = fmtCpf(DADOS.cpf); editavel(bc, 'cpf'); }
+  } else if (campo === 'end'){
+    var en = await quadroEndereco();
+    ['cep','rua','numero','bairro','cidade','lat','lon'].forEach(function(k){ DADOS[k] = en[k]; });
+    DADOS.cep = soDig(en.cep); editavel(ultimoEu(), 'end');
+  } else if (campo === 'vei'){
+    await bot('<b>Quantos veículos vão receber o rastreador?</b>');
+    var q = await perguntar({ botoes: [{ t: '1', v: '1' }, { t: '2', v: '2' }, { t: '3', v: '3' }, { t: '4 ou mais', v: 'mais' }], texto: false }), n = +q;
+    if (q === 'mais'){
+      await bot('Quantos são? Digite o número.');
+      n = +soDig(await perguntar({ modo: 'numeric', placeholder: 'Ex.: 5', max: 2, validar: function(x){ var y = +soDig(x); return y >= 1 && y <= 30 ? '' : 'Digite só o número de veículos (ex.: 5).'; } }));
+    }
+    var vs = await quadroVeiculos(n);
+    DADOS.veiculos = vs.map(function(x){ return { placa: x.placa, modelo: x.modelo, ano: x.ano, gnv: x.gnv, rastreio: x.rastreio }; });
+  }
+}
+async function diaEPeriodo(){ await pData(); DADOS.data = D.data; DADOS.periodo = D.periodo; }
+async function conversaPagina(pre){
+  progresso(3);
+  var nome1 = primeiroNome(pre.nome);
+  var oi = 'Olá' + (nome1 ? ', ' + nome1 : '') + '! 👋 Sou o assistente de agendamento da Rastreando GPS.' + (IND.nome ? ' Vi que você foi indicado por ' + IND.nome + '! 🎁' : '');
+  await bot(esc(oi).replace(/Rastreando GPS/, '<b>Rastreando GPS</b>'));
+  await dadosIniciais(pre);
+  await enderecoEVeiculos();
+  await diaEPeriodo();
+  while (true){
+    dadosParaD(DADOS); progresso(90);
+    var r0 = document.createElement('div'); r0.className = 'resumo'; r0.innerHTML = resumoHtml(); wrap.appendChild(r0); rolar();
+    var c = await perguntar({ botoes: [{ t: 'Está certo, agendar ✅', v: 'ok', pri: 1 }, { t: 'Corrigir algo', v: 'corrigir' }], texto: false });
+    if (c === 'ok'){
+      dadosParaD(DADOS); // vale o que foi corrigido pelo "Editar" depois do resumo
+      var e = erroData(D.data);
+      if (e){ await erroMsg(e); await diaEPeriodo(); continue; }
+      while (true){ var ok = await enviar(); if (ok !== null) return; await perguntar({ botoes: [{ t: 'Tentar de novo', v: 'de novo', pri: 1 }], texto: false }); }
+    }
+    await bot('O que você quer corrigir?');
+    var o = await perguntar({ botoes: [{ t: 'Nome', v: 'nome' }, { t: 'WhatsApp', v: 'tel' }, { t: 'CPF', v: 'cpf' }, { t: 'Endereço', v: 'end' }, { t: 'Veículos', v: 'vei' }, { t: 'Dia e período', v: 'dia' }, { t: 'Nada, está certo', v: 'nada', pri: 1 }], texto: false });
+    if (o === 'dia') await diaEPeriodo(); else if (o !== 'nada') await corrigirCampo(o);
+  }
+}
+
 async function iniciar(){
   // já concluído neste aparelho?
   var feito = null; try { feito = JSON.parse(localStorage.getItem(LOCAL_KEY) || 'null'); } catch (e) {}
@@ -1124,7 +1188,8 @@ async function iniciar(){
     if (info.vencido){ await bot('Este link de agendamento <b>venceu</b>. ⏰\nPeça um novo para a gente no WhatsApp.'); travar(); return; }
     pre.nome = info.nome || ''; pre.telefone = info.telefone || '';
     if (info.ind){ IND.codigo = info.ind; IND.nome = info.indNome || ''; }
-    if (info.ia){ await conversaIA(pre); return; }
+    if (info.ia && USAR_IA){ await conversaIA(pre); return; }
+    await conversaPagina(pre); return; // 14/11/2026: links do robô sem IA (a página pergunta tudo)
   } else {
     if (feito && feito.id && Date.now() - feito.em < 3 * 864e5){ await bot('Você já enviou um agendamento por aqui. ✅'); telaFim(feito.id, ''); return; }
     var m = /[?&]ind=([A-Za-z0-9]{6})(?:&|$)/.exec(location.search);
