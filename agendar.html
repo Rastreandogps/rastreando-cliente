@@ -497,6 +497,9 @@ async function pVeiculos(){
 }
 // 14/11/2026: tarde demais para marcar HOJE (dia útil a partir das 16h; sábado a partir das 12h) e manhã de hoje só até as 11h
 function hojeNaoDa(){ var h = new Date().getHours(); return diaSem(HOJE) === 6 ? h >= 12 : h >= 16; }
+// 15/11/2026 (dono): o primeiro nome do cliente aparece em 2 perguntas sorteadas (personalização)
+var NOME_EM = (function(){ var l = ['end', 'qtd', 'dia', 'per']; for (var i = l.length - 1; i > 0; i--){ var j = Math.floor(Math.random() * (i + 1)), t = l[i]; l[i] = l[j]; l[j] = t; } return l.slice(0, 2); })();
+function nomeEm(ch){ var n = NOME_EM.indexOf(ch) >= 0 ? primeiroNome((typeof DADOS !== 'undefined' && DADOS.nome) || D.nome || '') : ''; return n ? esc(n) : ''; }
 var BAL = {}; // balões que ganham "Editar" (dia, período, veículos)
 async function pData(){
   D.data = D.periodo = '';
@@ -505,7 +508,8 @@ async function pData(){
   if (!hojeNaoDa() && !erroData(HOJE) && diaSem(HOJE) !== 0) ops.push({ t: 'Hoje', v: HOJE });
   if (!erroData(AM) && diaSem(AM) !== 0) ops.push({ t: 'Amanhã', v: AM });
   ops.push({ t: '📅 Outro dia', v: '__cal' });
-  await bot('Qual <b>dia</b> fica melhor para a instalação?<div class="dica">Atendemos de segunda a sábado (no sábado, a tarde vai até 14h), menos feriados.</div>');
+  var nD = nomeEm('dia');
+  await bot((nD ? nD + ', qual' : 'Qual') + ' <b>dia</b> fica melhor para a instalação?<div class="dica">Atendemos de segunda a sábado (no sábado, a tarde vai até 14h), menos feriados.</div>');
   while (true){
     var r = await perguntar({ botoes: ops, texto: false });
     if (r === '__cal'){
@@ -518,7 +522,8 @@ async function pData(){
     if (diaSem(r) === 0) await bot('Domingo é atendimento <b>excepcional</b>: vamos confirmar com você se temos disponibilidade nesse dia.');
     break;
   }
-  await bot('E o <b>período</b>?');
+  var nP = nomeEm('per');
+  await bot('E o <b>período</b>' + (nP ? ', ' + nP : '') + '?');
   var pers = [{ t: 'Manhã (8h–12h)', v: 'manha' }, { t: periodoTexto('tarde', D.data), v: 'tarde' }];
   if (D.data === HOJE && new Date().getHours() >= 11) pers.shift(); // manhã de hoje já passou
   D.periodo = await perguntar({ botoes: pers, texto: false }); BAL.per = ultimoEu();
@@ -882,7 +887,8 @@ async function quadroEndereco(){
   var E = { cep: '', rua: '', numero: '', bairro: '', cidade: '', lat: null, lon: null };
   externo: while (true){ // 13/11/2026 (dono): "Voltar" nos quadros do endereço volta para "Você está no endereço?"
   E.lat = null; E.lon = null;
-  await bot('Você está agora no <b>endereço onde será feita a instalação</b>?');
+  var nE = nomeEm('end');
+  await bot((nE ? nE + ', você' : 'Você') + ' está agora no <b>endereço onde será feita a instalação</b>?');
   var aqui = await perguntar({ botoes: [{ t: 'Sim, estou no local', v: 'sim', pri: 1 }, { t: 'Não', v: 'nao', neg: 1 }], texto: false });
   if (aqui === 'sim'){
     await bot('Toque em <b>Permitir</b> para eu pegar a sua localização 📍');
@@ -988,7 +994,8 @@ async function editarEndereco(el){
 }
 async function perguntarQtdEVeiculos(){ // 15/11/2026: quantidade + veículos, podendo voltar para mudar a quantidade
   while (true){
-    await bot('<b>Quantos veículos vão receber o rastreador?</b>');
+    var nQ = nomeEm('qtd');
+    await bot('<b>' + (nQ ? nQ + ', quantos' : 'Quantos') + ' veículos vão receber o rastreador?</b>');
     var q = await perguntar({ botoes: [{ t: '1', v: '1' }, { t: '2', v: '2' }, { t: '3', v: '3' }, { t: '4 ou mais', v: 'mais' }], texto: false }), n = +q;
     if (q === 'mais'){
       await bot('Quantos são? Digite o número.');
