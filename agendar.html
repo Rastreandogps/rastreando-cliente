@@ -110,7 +110,7 @@ footer.soBotao{display:none}
 .qd .lin.vbl .vmod{border-bottom:1px dashed #C9D5E8;padding-bottom:9px;margin-bottom:2px}
 .qd .lin.vbl .tgb{background:#DFE6F1}.qd .lin.vbl input.placa{background:#fff}
 .qd .lin b{display:block;font-size:13px;color:var(--text3);margin-bottom:6px;font-weight:600}
-.qd .vrm{float:right;border:1px solid #F5A3A3;background:#FFF5F5;color:#C53030;font:600 12.5px Inter,sans-serif;cursor:pointer;padding:5px 10px;border-radius:999px;margin:-4px 0 0 8px;text-transform:none;letter-spacing:0}.qd .vadd{width:100%;margin:2px 0 12px;border:1.5px dashed var(--navy2);background:#fff;color:var(--navy2);border-radius:12px;padding:11px;font:600 14.5px Inter,sans-serif;cursor:pointer}
+.qd .vrm{float:right;border:1px solid #F5A3A3;background:#FFF5F5;color:#C53030;font:600 12.5px Inter,sans-serif;cursor:pointer;padding:5px 10px;border-radius:999px;margin:-4px 0 0 8px;text-transform:none;letter-spacing:0}.qd .vadd{width:100%;margin:2px 0 14px;border:1.5px dashed var(--navy2);background:#fff;color:var(--navy2);border-radius:12px;padding:11px;font:600 14.5px Inter,sans-serif;cursor:pointer}
 .qd .cps{display:flex;gap:8px;flex-wrap:wrap}.qd input[type=text],.qd input[type=date]{flex:1;min-width:0;border:1.5px solid var(--border);border-radius:10px;padding:11px 12px;font:16px Inter,sans-serif;background:#F8FAFC;outline:none}
 .qd input.placa{text-transform:uppercase;letter-spacing:.06em;font-weight:600}.qd input.ano{flex:0 0 92px}.qd input:focus{border-color:var(--navy2);background:#fff}.qd input.mal{border-color:var(--danger);background:#FFF5F5}
 .qd label.ck{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--text2);margin-top:8px}.qd label.ck input{width:20px;height:20px}
@@ -1229,7 +1229,7 @@ async function modeloEAno(placa){
 /* 15/11/2026 (dono): o mesmo quadro corrige placa, GNV, bloqueio e a QUANTIDADE (adicionar / remover veículo) */
 async function editarVeiculos(){
   var vs = DADOS.veiculos || []; if (!vs.length) return;
-  var corpo = '<div class="vlista">' + vs.map(function(v, k){ return linhaVeic(k, v, false); }).join('') + '</div><button type="button" class="vadd">+ Adicionar veículo</button>';
+  var corpo = '<button type="button" class="vadd">+ Adicionar veículo</button><div class="vlista">' + vs.map(function(v, k){ return linhaVeic(k, v, false); }).join('') + '</div>'; // 15/11/2026 (dono): botão de adicionar em cima
   setTimeout(function(){
     var q = document.querySelector('.qd'); if (!q) return;
     var ligar = function(){
@@ -1240,8 +1240,8 @@ async function editarVeiculos(){
     ligar();
     q.querySelector('.vadd').onclick = function(){
       if (q.querySelectorAll('.vrow').length >= 30) return;
-      var d = document.createElement('div'); d.innerHTML = linhaVeic(-1, { placa: '', modelo: '', gnv: 'nao', rastreio: 'com' }, true); q.querySelector('.vlista').appendChild(d.firstChild); ligar();
-      var np = q.querySelectorAll('input.placa'); np = np[np.length - 1]; try { np.scrollIntoView({ block: 'center' }); } catch (e) {}
+      var d = document.createElement('div'); d.innerHTML = linhaVeic(-1, { placa: '', modelo: '', gnv: 'nao', rastreio: 'com' }, true); var nl = d.firstChild, vl = q.querySelector('.vlista'); vl.insertBefore(nl, vl.firstChild); ligar(); // o card novo aparece logo abaixo do botão
+      try { nl.scrollIntoView({ block: 'nearest' }); } catch (e) {}
     };
   }, 40);
   var r = await quadro('Corrigir os veículos', 'Mude a placa, toque no que for diferente, adicione ou remova um veículo.', corpo, function(q){
@@ -1252,6 +1252,7 @@ async function editarVeiculos(){
       row.querySelectorAll('.tgl').forEach(function(t){ if (t.dataset.c === 'g') it.gnv = t.dataset.v; else it.rastreio = t.dataset.v; });
       o.push(it);
     });
+    o = o.filter(function(it){ return it.k >= 0; }).concat(o.filter(function(it){ return it.k < 0; }).reverse()); // os que já existiam primeiro; os novos depois, na ordem em que foram adicionados
     return erro ? { erro: erro } : { v: o };
   });
   if (r === VOLTAR) return;
