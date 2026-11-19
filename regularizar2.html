@@ -73,8 +73,14 @@ main{flex:1;overflow-y:auto;padding:16px 12px 8px;scroll-behavior:smooth}
 .gerar{width:100%;margin-top:14px;border:0;border-radius:14px;background:var(--green);color:#fff;font:800 18px Sora,Inter,sans-serif;padding:16px;cursor:pointer;box-shadow:0 4px 14px rgba(0,179,126,.40)}
 .gerar:disabled{opacity:.7}
 .pdfs{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:10px}
-.pdfs a{flex:1 1 45%;text-align:center;border:1.5px solid var(--border);border-radius:12px;padding:11px 10px;font:600 14.5px Inter,sans-serif;color:var(--navy2);text-decoration:none;background:#F8FAFC}
-.pdfs a:active{transform:scale(.97)}
+.pdfs a,.pdfs button{flex:1 1 100%;cursor:pointer;text-align:center;border:1.5px solid var(--border);border-radius:12px;padding:11px 10px;font:600 14.5px Inter,sans-serif;color:var(--navy2);text-decoration:none;background:#F8FAFC}
+.pdfs a:active,.pdfs button:active{transform:scale(.97)}
+.qd-fundo{position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:50;display:flex;align-items:flex-end;justify-content:center;animation:in .2s}
+.qd{background:#fff;width:100%;max-width:640px;max-height:88dvh;overflow:auto;border-radius:18px 18px 0 0;padding:18px 16px calc(16px + env(safe-area-inset-bottom));box-shadow:0 -6px 24px rgba(0,0,0,.18)}
+.qd h3{margin:0 0 4px;font:700 19px Sora,Inter,sans-serif;color:var(--navy)}.qd .sub{font-size:13.5px;color:var(--text2);margin:0 0 12px}
+.qpdf{display:flex;justify-content:space-between;align-items:center;border:1.5px solid var(--border);border-radius:12px;padding:15px 14px;margin-bottom:10px;text-decoration:none;color:var(--navy2);font:600 16px Inter,sans-serif;background:#F8FAFC}
+.qpdf b{color:var(--text);font-weight:700}
+.qfechar{width:100%;border:0;background:none;color:var(--text3);font:500 15px Inter,sans-serif;padding:10px;cursor:pointer}
 /* 19/11/2026 (dono): "aguarde, estou buscando" com barrinha andando (evita a ansiedade) */
 .carregando{display:flex;flex-direction:column;gap:8px;min-width:220px}
 .carregando .bar{height:6px;border-radius:6px;background:#E8EDF4;overflow:hidden;position:relative}
@@ -219,9 +225,17 @@ footer.some{display:none}
   function htmlPdfs(l) {
     var c = l.filter(function (f) { return /^https:\/\//.test(f.pdf || ''); });
     if (!c.length) return '';
-    return '<div class="pdfs">' + c.map(function (f) {
-      return '<a href="' + esc(f.pdf) + '" target="_blank" rel="noopener">📄 PDF do boleto' + (c.length > 1 ? ' ' + dataBR(f.vencimento) : '') + '</a>';
-    }).join('') + '</div>';
+    if (c.length === 1) return '<div class="pdfs"><a href="' + esc(c[0].pdf) + '" target="_blank" rel="noopener">📄 PDF</a></div>';
+    return '<div class="pdfs"><button type="button" id="btnPdf">📄 PDF</button></div>'; /* 19/11/2026 (dono): 2+ boletos = escolhe num quadro à parte */
+  }
+  function abrirPdfs() {
+    var c = marcadas().filter(function (f) { return /^https:\/\//.test(f.pdf || ''); });
+    var fundo = div('qd-fundo');
+    fundo.innerHTML = '<div class="qd"><h3>Qual boleto?</h3><p class="sub">Toque para abrir o PDF.</p>' + c.map(function (f) {
+      return '<a class="qpdf" href="' + esc(f.pdf) + '" target="_blank" rel="noopener"><span>📄 ' + dataBR(f.vencimento) + '</span><b>' + brl(f.valor) + '</b></a>';
+    }).join('') + '<button type="button" class="qfechar">Fechar</button></div>';
+    fundo.addEventListener('click', function (ev) { if (ev.target === fundo || ev.target.classList.contains('qfechar')) fundo.remove(); });
+    document.body.appendChild(fundo);
   }
 
   function etapaFaturas(res) {
@@ -239,6 +253,7 @@ footer.some{display:none}
         $('btnGerar').onclick = function () { c.querySelectorAll('.fat').forEach(function (x) { x.style.pointerEvents = 'none'; }); this.disabled = true; this.textContent = 'Gerando…'; fim(); };
       }
       c.addEventListener('click', function (ev) {
+        if (ev.target.closest('#btnPdf')) { abrirPdfs(); return; }
         var el = ev.target.closest('.fat.sel'); if (!el || el.classList.contains('trava') || !S.sel || $('btnGerar').disabled) return;
         var k = el.getAttribute('data-k'); S.sel[k] = !S.sel[k]; c.innerHTML = htmlQuadro(); liga();
       });
