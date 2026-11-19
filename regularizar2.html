@@ -72,6 +72,9 @@ main{flex:1;overflow-y:auto;padding:16px 12px 8px;scroll-behavior:smooth}
 .fat .fx{flex:1;min-width:0}
 .gerar{width:100%;margin-top:14px;border:0;border-radius:14px;background:var(--green);color:#fff;font:800 18px Sora,Inter,sans-serif;padding:16px;cursor:pointer;box-shadow:0 4px 14px rgba(0,179,126,.40)}
 .gerar:disabled{opacity:.7}
+.pdfs{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:10px}
+.pdfs a{flex:1 1 45%;text-align:center;border:1.5px solid var(--border);border-radius:12px;padding:11px 10px;font:600 14.5px Inter,sans-serif;color:var(--navy2);text-decoration:none;background:#F8FAFC}
+.pdfs a:active{transform:scale(.97)}
 /* 19/11/2026 (dono): "aguarde, estou buscando" com barrinha andando (evita a ansiedade) */
 .carregando{display:flex;flex-direction:column;gap:8px;min-width:220px}
 .carregando .bar{height:6px;border-radius:6px;background:#E8EDF4;overflow:hidden;position:relative}
@@ -184,9 +187,9 @@ footer.some{display:none}
       if (!ok) { await bot('Esse CPF não confere. Digita de novo?', 'erro'); continue; }
       esperandoCpf = null; rodape(false); $('entrada').value = ''; eu(mascara(d));
       var t = await carregar('Aguarde uns segundos, estou buscando seus dados… 🔎');
-      try { var res = await chamar('divida_consultar', { cpf: d }); await espera(400); pronto(t); return res; }
+      try { var res = await chamar('divida_consultar', { cpf: d }); await espera(400); t.remove(); return res; } // 19/11 (dono): o "aguarde" some
       catch (e) {
-        pronto(t);
+        t.remove();
         if (e.status === 'NOT_FOUND') await bot('Não achei cadastro com esse CPF. Confere os números?', 'erro');
         else if (e.status === 'RESOURCE_EXHAUSTED') { await bot('Muitas tentativas agora. Tente daqui a pouco.', 'erro'); return null; }
         else await bot(esc(e.message), 'erro');
@@ -210,7 +213,15 @@ footer.some{display:none}
         '<div class="v">' + brl(f.atualizado) + '</div></div>';
     }).join('') +
       '<div class="total"><div>Total' + (l.length > 1 ? '<small>' + l.length + ' boletos num PIX só</small>' : '') + '</div><div>' + brl(totalSel()) + '</div></div>' +
-      '<button type="button" class="gerar" id="btnGerar">Gerar PIX</button>';
+      '<button type="button" class="gerar" id="btnGerar">Gerar PIX</button>' + htmlPdfs(l);
+  }
+  /* 19/11/2026 (dono): PDF do boleto (empresas guardam o boleto nas planilhas/arquivos) */
+  function htmlPdfs(l) {
+    var c = l.filter(function (f) { return /^https:\/\//.test(f.pdf || ''); });
+    if (!c.length) return '';
+    return '<div class="pdfs">' + c.map(function (f) {
+      return '<a href="' + esc(f.pdf) + '" target="_blank" rel="noopener">📄 PDF do boleto' + (c.length > 1 ? ' ' + dataBR(f.vencimento) : '') + '</a>';
+    }).join('') + '</div>';
   }
 
   function etapaFaturas(res) {
@@ -219,7 +230,9 @@ footer.some{display:none}
       var r = res, venc = r.faturas.filter(function (f) { return f.vencida; }).length, prox = r.faturas.length - venc;
       S.sel = null;
       if (prox && r.faturas.every(function (f) { return f.k; })) { S.sel = {}; r.faturas.forEach(function (f) { S.sel[f.k] = true; }); }
-      await bot(S.nome && S.nome.indexOf('*') < 0 ? 'Achei, <b>' + esc(S.nome) + '</b>. ✅' : 'Achei seu cadastro. ✅');
+      var completo = String((res.cliente && (res.cliente.completo || res.cliente.nome)) || '').trim();
+      if (res.cliente && res.cliente.completo) S.nome = completo.split(/\s+/)[0].charAt(0).toUpperCase() + completo.split(/\s+/)[0].slice(1).toLowerCase();
+      await bot(completo && completo.indexOf('*') < 0 ? 'Achei, <b>' + esc(completo) + '</b>. ✅' : 'Achei seu cadastro. ✅');
       await bot(prox ? 'Já juntei tudo para você ficar <b>em dia</b>. 👇' : (r.faturas.length > 1 ? 'Juntei tudo num PIX só. 👇' : 'Este é o seu boleto em aberto. 👇'));
       var c = add(div('cartao quadro', htmlQuadro()));
       function liga() {
