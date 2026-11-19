@@ -64,6 +64,14 @@ main{flex:1;overflow-y:auto;padding:16px 12px 8px;scroll-behavior:smooth}
 .acesso .k{color:var(--text3);font-size:13px}.acesso .val{font:700 16px Inter,sans-serif;word-break:break-all}
 .acesso .mini{border:1.5px solid var(--navy2);background:#fff;color:var(--navy2);font:600 13px Inter,sans-serif;padding:6px 12px;border-radius:999px;cursor:pointer;flex:none}
 .fim{text-align:center;font-size:44px;line-height:1;margin:4px 0}
+.fat.sel{cursor:pointer;gap:12px}.fat.sel.trava{cursor:default}
+.fat .ck{flex:none;width:24px;height:24px;border-radius:7px;border:2px solid #b8c0cc;background:#fff;display:flex;align-items:center;justify-content:center;transition:background .15s,border-color .15s}
+.fat .ck svg{width:14px;height:14px;fill:none;stroke:#fff;stroke-width:3.2;stroke-linecap:round;stroke-linejoin:round;opacity:0}
+.fat.on .ck{background:var(--green);border-color:var(--green)}.fat.on .ck svg{opacity:1}
+.fat:not(.on) .d,.fat:not(.on) .v{opacity:.5}
+.fat .fx{flex:1;min-width:0}
+.gerar{width:100%;margin-top:14px;border:0;border-radius:14px;background:var(--green);color:#fff;font:800 18px Sora,Inter,sans-serif;padding:16px;cursor:pointer;box-shadow:0 4px 14px rgba(0,179,126,.40)}
+.gerar:disabled{opacity:.7}
 /* 19/11/2026 (dono): "aguarde, estou buscando" com barrinha andando (evita a ansiedade) */
 .carregando{display:flex;flex-direction:column;gap:8px;min-width:220px}
 .carregando .bar{height:6px;border-radius:6px;background:#E8EDF4;overflow:hidden;position:relative}
@@ -186,41 +194,44 @@ footer.some{display:none}
     }
   }
 
-  /* ---------- 2. Faturas ---------- */
-  function cartaoFaturas(r, lista) {
-    var h = '<h4>Em aberto</h4>' + r.faturas.map(function (f) {
-      var dentro = lista.indexOf(f) >= 0;
-      return '<div class="fat" style="' + (dentro ? '' : 'opacity:.45') + '"><div><div class="d">' + (f.vencida ? 'Venceu ' : 'Vence ') + dataBR(f.vencimento) +
-        '<span class="tg ' + (f.vencida ? 'venc">' + f.dias + (f.dias === 1 ? ' dia' : ' dias') : 'prox">a vencer') + '</span></div>' +
-        (f.vencida && Number(f.atualizado) > Number(f.valor) ? '<div class="q">' + brl(f.valor) + ' + multa e juros</div>' : '') + '</div><div class="v">' + brl(f.atualizado) + '</div></div>';
-    }).join('');
-    var tot = lista.reduce(function (t, f) { return t + Number(f.atualizado || 0); }, 0);
-    h += '<div class="total"><div>Total' + (lista.length > 1 ? '<small>' + lista.length + ' mensalidades num PIX só</small>' : '') + '</div><div>' + brl(tot) + '</div></div>';
-    return h;
+  /* ---------- 2. Faturas ----------
+     19/11/2026 (dono): um quadro só, cada boleto com caixinha JÁ MARCADA e o total embaixo. Empurra para pagar tudo
+     (sem pergunta "quer pagar junto?"). A vencida não sai (o servidor sempre inclui); a que vence logo pode ser desmarcada. */
+  var CK = '<span class="ck"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>';
+  function marcadas() { return S.r.faturas.filter(function (f) { return f.vencida || !S.sel || S.sel[f.k]; }); }
+  function totalSel() { return marcadas().reduce(function (t, f) { return t + Number(f.atualizado || 0); }, 0); }
+  function htmlQuadro() {
+    var r = S.r, l = marcadas();
+    return '<h4>Seus boletos</h4>' + r.faturas.map(function (f) {
+      var on = l.indexOf(f) >= 0, trava = f.vencida || !S.sel;
+      return '<div class="fat sel' + (on ? ' on' : '') + (trava ? ' trava' : '') + '" data-k="' + esc(f.k || '') + '">' + CK +
+        '<div class="fx"><div class="d">' + (f.vencida ? 'Venceu ' : 'Vence ') + dataBR(f.vencimento) +
+        '<span class="tg ' + (f.vencida ? 'venc">' + f.dias + (f.dias === 1 ? ' dia' : ' dias') : 'prox">vence logo') + '</span></div>' +
+        (f.vencida && Number(f.atualizado) > Number(f.valor) ? '<div class="q">' + brl(f.valor) + ' + multa e juros</div>' : '') + '</div>' +
+        '<div class="v">' + brl(f.atualizado) + '</div></div>';
+    }).join('') +
+      '<div class="total"><div>Total' + (l.length > 1 ? '<small>' + l.length + ' boletos num PIX só</small>' : '') + '</div><div>' + brl(totalSel()) + '</div></div>' +
+      '<button type="button" class="gerar" id="btnGerar">Gerar PIX</button>';
   }
 
-  async function etapaFaturas(res) {
-    S.sessao = res.sessao; S.r = res; S.nome = String((res.cliente && res.cliente.nome) || '').split(' ')[0];
-    var r = res, venc = r.faturas.filter(function (f) { return f.vencida; }), prox = r.faturas.filter(function (f) { return !f.vencida; });
-    await bot('Achei, <b>' + esc(S.nome || 'cliente') + '</b>.');
-    await bot(venc.length === 1 ? 'Você tem <b>1 mensalidade</b> em aberto.' : 'Você tem <b>' + venc.length + ' mensalidades</b> em aberto. Junto tudo num PIX só.');
-    var lista = venc.slice();
-    S.sel = null;
-    if (prox.length && r.faturas.every(function (f) { return f.k; })) {
-      S.sel = {}; r.faturas.forEach(function (f) { S.sel[f.k] = !!f.vencida; });
-      add(div('cartao', cartaoFaturas(r, lista)));
-      for (var i = 0; i < prox.length; i++) {
-        var f = prox[i];
-        await bot('A de <b>' + dataBR(f.vencimento) + '</b> vence logo. Quer pagar junto?');
-        var q = await botoes([{ t: 'Sim, pagar junto', v: true, c: 'pri' }, { t: 'Não, só a vencida', v: false }]);
-        S.sel[f.k] = q; if (q) lista.push(f);
+  function etapaFaturas(res) {
+    return new Promise(async function (fim) {
+      S.sessao = res.sessao; S.r = res; S.nome = String((res.cliente && res.cliente.nome) || '').split(' ')[0];
+      var r = res, venc = r.faturas.filter(function (f) { return f.vencida; }).length, prox = r.faturas.length - venc;
+      S.sel = null;
+      if (prox && r.faturas.every(function (f) { return f.k; })) { S.sel = {}; r.faturas.forEach(function (f) { S.sel[f.k] = true; }); }
+      await bot(S.nome && S.nome.indexOf('*') < 0 ? 'Achei, <b>' + esc(S.nome) + '</b>. ✅' : 'Achei seu cadastro. ✅');
+      await bot(prox ? 'Já juntei tudo para você ficar <b>em dia</b>. 👇' : (r.faturas.length > 1 ? 'Juntei tudo num PIX só. 👇' : 'Este é o seu boleto em aberto. 👇'));
+      var c = add(div('cartao quadro', htmlQuadro()));
+      function liga() {
+        $('btnGerar').onclick = function () { c.querySelectorAll('.fat').forEach(function (x) { x.style.pointerEvents = 'none'; }); this.disabled = true; this.textContent = 'Gerando…'; fim(); };
       }
-      lista.sort(function (a, b) { return String(a.vencimento).localeCompare(String(b.vencimento)); });
-    }
-    var c = add(div('cartao', cartaoFaturas(r, lista)));
-    if (r.acordoGerado && !S.sel) await bot('Seu PIX de hoje já está pronto.');
-    var go = await botoes([{ t: 'Gerar PIX de ' + brl(lista.reduce(function (t, f) { return t + Number(f.atualizado || 0); }, 0)), v: 1, c: 'pri', calado: true }]);
-    return go;
+      c.addEventListener('click', function (ev) {
+        var el = ev.target.closest('.fat.sel'); if (!el || el.classList.contains('trava') || !S.sel || $('btnGerar').disabled) return;
+        var k = el.getAttribute('data-k'); S.sel[k] = !S.sel[k]; c.innerHTML = htmlQuadro(); liga();
+      });
+      liga(); rolar();
+    });
   }
 
   /* ---------- 3. PIX ---------- */
