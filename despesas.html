@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Despesas da operação</title>
+<meta name="theme-color" content="#1B3A6B">
+<meta name="robots" content="noindex, nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<!-- 19/11/2026 (pedido do dono): app TEMPORÁRIO de despesas da operação em Minas (ressarcimento).
+     Foto do recibo/print + valor + tipo. Resumo por dia e por tipo. Adiantamento recebido desconta.
+     Relatório com todas as fotos (imprimir/salvar PDF) e resumo para colar no WhatsApp.
+     O robô do Telegram lê e lança nos mesmos dados (despesas_resumo / despesas_lancar). -->
+<style>
+:root{--navy:#1B3A6B;--navy2:#2451A0;--green:#00B37E;--bg:#EEF2F7;--text:#1A2035;--text2:#4A5568;--text3:#8A96AA;--border:#E2E8F0;--danger:#E03131;--amber:#E07B00}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0}
+body{font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--text);min-height:100dvh;padding-bottom:calc(96px + env(safe-area-inset-bottom))}
+header{background:linear-gradient(135deg,var(--navy),var(--navy2));color:#fff;padding:calc(16px + env(safe-area-inset-top)) 18px 64px}
+header .t{font:800 21px Sora,Inter,sans-serif}
+header .s{font-size:13.5px;opacity:.82;margin-top:3px}
+.wrap{max-width:640px;margin:0 auto;padding:0 14px}
+.resumo{background:#fff;border-radius:20px;box-shadow:0 8px 28px rgba(27,58,107,.16);padding:18px;margin-top:-48px;position:relative}
+.resumo .lab{font-size:12.5px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+.resumo .grande{font:800 34px Sora,Inter,sans-serif;margin:4px 0 12px;color:var(--text)}
+.resumo .linha{display:flex;gap:10px}
+.resumo .bx{flex:1;background:#F6F8FB;border-radius:14px;padding:10px 12px}
+.resumo .bx b{display:block;font:700 17px Sora,Inter,sans-serif;margin-top:2px}
+.resumo .bx.rec b{color:var(--green)}
+.resumo .acoes{display:flex;gap:8px;margin-top:12px}
+.resumo .acoes button{flex:1;border:1.5px solid var(--border);background:#fff;border-radius:12px;padding:11px 8px;font:600 14px Inter,sans-serif;color:var(--navy2);cursor:pointer}
+.cats{display:flex;gap:8px;overflow-x:auto;margin:14px 0 2px;padding-bottom:4px;scrollbar-width:none}
+.cats::-webkit-scrollbar{display:none}
+.cats span{flex:none;background:#fff;border:1px solid var(--border);border-radius:999px;padding:7px 12px;font-size:13px;font-weight:600;white-space:nowrap}
+.dia{margin-top:18px}
+.dia h3{display:flex;justify-content:space-between;align-items:baseline;margin:0 4px 8px;font:700 15px Sora,Inter,sans-serif;color:var(--navy)}
+.dia h3 small{font:700 15px Inter,sans-serif;color:var(--text)}
+.item{display:flex;align-items:center;gap:12px;background:#fff;border-radius:16px;padding:12px;margin-bottom:8px;box-shadow:0 1px 3px rgba(0,0,0,.05)}
+.item .ic{flex:none;width:44px;height:44px;border-radius:12px;background:#EEF3FB;display:grid;place-items:center;font-size:22px;overflow:hidden;cursor:pointer;border:0;padding:0}
+.item .ic img{width:100%;height:100%;object-fit:cover}
+.item .tx{flex:1;min-width:0}
+.item .tx b{display:block;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.item .tx small{color:var(--text3);font-size:12.5px}
+.item .tx small.sf{color:var(--amber);font-weight:600}
+.item .v{font:700 16px Sora,Inter,sans-serif;white-space:nowrap}
+.item.adi .v{color:var(--green)}
+.item .mais{flex:none;border:0;background:none;font-size:20px;color:var(--text3);padding:6px;cursor:pointer}
+.vazio{text-align:center;color:var(--text3);padding:40px 10px;font-size:15px}
+.fab{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(18px + env(safe-area-inset-bottom));z-index:20;border:0;border-radius:999px;background:var(--green);color:#fff;font:800 17px Sora,Inter,sans-serif;padding:17px 30px;box-shadow:0 8px 22px rgba(0,179,126,.45);cursor:pointer;display:flex;align-items:center;gap:8px}
+.fab:active{transform:translateX(-50%) scale(.97)}
+/* folha de baixo */
+.fundo{position:fixed;inset:0;background:rgba(15,23,42,.5);z-index:50;display:none;align-items:flex-end;justify-content:center}
+.fundo.on{display:flex;animation:fade .18s}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+.folha{background:#fff;width:100%;max-width:640px;max-height:94dvh;overflow:auto;border-radius:22px 22px 0 0;padding:18px 16px calc(18px + env(safe-area-inset-bottom))}
+.folha h2{margin:0 0 14px;font:800 20px Sora,Inter,sans-serif;color:var(--navy);display:flex;justify-content:space-between;align-items:center}
+.folha h2 button{border:0;background:#F1F4F8;border-radius:50%;width:34px;height:34px;font-size:18px;cursor:pointer;color:var(--text2)}
+.foto{border:2px dashed #C3CCDA;border-radius:16px;min-height:130px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;color:var(--text3);font-weight:600;cursor:pointer;overflow:hidden;position:relative;background:#F8FAFC}
+.foto img{width:100%;max-height:260px;object-fit:contain;background:#000}
+.foto .big{font-size:34px}
+.foto .tira{position:absolute;top:8px;right:8px;border:0;background:rgba(0,0,0,.6);color:#fff;border-radius:999px;padding:6px 11px;font-weight:600;cursor:pointer}
+.campo{margin-top:14px}
+.campo label{display:block;font-size:13px;font-weight:600;color:var(--text2);margin-bottom:6px}
+.valor{display:flex;align-items:center;gap:6px;border:1.5px solid var(--border);border-radius:14px;padding:6px 14px;background:#fff}
+.valor span{font:700 22px Sora,Inter,sans-serif;color:var(--text3)}
+.valor input{flex:1;min-width:0;border:0;outline:none;font:800 30px Sora,Inter,sans-serif;color:var(--text);padding:6px 0;background:none}
+.valor:focus-within{border-color:var(--navy2)}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chips button{border:1.5px solid var(--border);background:#fff;border-radius:999px;padding:9px 13px;font:600 14px Inter,sans-serif;color:var(--text);cursor:pointer}
+.chips button.on{border-color:var(--navy2);background:var(--navy2);color:#fff}
+.inp{width:100%;border:1.5px solid var(--border);border-radius:12px;padding:12px 14px;font:16px Inter,sans-serif;color:var(--text);outline:none;background:#fff}
+.inp:focus{border-color:var(--navy2)}
+.salvar{width:100%;margin-top:18px;border:0;border-radius:14px;background:var(--green);color:#fff;font:800 18px Sora,Inter,sans-serif;padding:16px;cursor:pointer;box-shadow:0 4px 14px rgba(0,179,126,.4)}
+.salvar:disabled{opacity:.6}
+.erro{color:var(--danger);font-size:13.5px;margin-top:8px;min-height:18px}
+.menu button{display:block;width:100%;text-align:left;border:0;background:#F6F8FB;border-radius:12px;padding:15px 14px;margin-bottom:8px;font:600 16px Inter,sans-serif;color:var(--text);cursor:pointer}
+.menu button.del{color:var(--danger)}
+.ver img{width:100%;border-radius:12px;display:block}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(90px + env(safe-area-inset-bottom));background:#1A2035;color:#fff;padding:11px 18px;border-radius:12px;font-size:14px;font-weight:600;z-index:80;opacity:0;transition:opacity .2s;pointer-events:none}
+.toast.on{opacity:1}
+.carreg{text-align:center;padding:30px;color:var(--text3)}
+/* relatório (imprimir / salvar PDF) */
+#relatorio{display:none}
+@media print{
+  body{background:#fff;padding:0}
+  body>*:not(#relatorio){display:none !important}
+  #relatorio{display:block !important;padding:0 6mm;font-size:11pt}
+  #relatorio h1{font:800 18pt Sora,Inter,sans-serif;margin:0 0 4mm}
+  #relatorio table{width:100%;border-collapse:collapse;margin:3mm 0}
+  #relatorio td,#relatorio th{border-bottom:1px solid #ccc;padding:2mm;text-align:left}
+  #relatorio .fts{display:flex;flex-wrap:wrap;gap:4mm}
+  #relatorio .ft{width:58mm;break-inside:avoid}
+  #relatorio .ft img{width:100%;border:1px solid #ccc}
+}
+</style>
+</head>
+<body>
+<header><div class="wrap" style="padding:0"><div class="t">Despesas da operação</div><div class="s">Tudo anotado para o ressarcimento</div></div></header>
+<div class="wrap">
+  <div class="resumo">
+    <div class="lab">Total gasto</div>
+    <div class="grande" id="rTotal">R$ 0,00</div>
+    <div class="linha">
+      <div class="bx"><span class="lab">Adiantado</span><b id="rAdi">R$ 0,00</b></div>
+      <div class="bx rec"><span class="lab">A receber</span><b id="rRec">R$ 0,00</b></div>
+    </div>
+    <div class="acoes"><button type="button" id="btnCopiar">📋 Resumo</button><button type="button" id="btnRel">📄 Relatório</button></div>
+  </div>
+  <div class="cats" id="cats"></div>
+  <div id="lista"><div class="carreg">Carregando…</div></div>
+</div>
+<button class="fab" id="fab" type="button"><span style="font-size:22px;line-height:1">＋</span> Novo gasto</button>
+
+<!-- novo gasto -->
+<div class="fundo" id="fNovo"><div class="folha">
+  <h2><span id="nTit">Novo gasto</span><button type="button" data-fechar>✕</button></h2>
+  <div class="foto" id="nFoto"><span class="big">📷</span><span>Foto do recibo ou print</span><small style="font-weight:500">Câmera ou galeria</small></div>
+  <input type="file" id="nArq" accept="image/*" hidden>
+  <div class="campo"><label>Valor</label><div class="valor"><span>R$</span><input id="nValor" inputmode="decimal" placeholder="0,00" autocomplete="off"></div></div>
+  <div class="campo"><label>Tipo</label><div class="chips" id="nCats"></div></div>
+  <div class="campo"><label>O que foi (opcional)</label><input class="inp" id="nDesc" maxlength="120" placeholder="Ex.: Posto na BR-040"></div>
+  <div class="campo"><label>Dia</label><input class="inp" id="nData" type="date"></div>
+  <div class="erro" id="nErro"></div>
+  <button class="salvar" id="nSalvar" type="button">Salvar</button>
+</div></div>
+
+<!-- menu do lançamento -->
+<div class="fundo" id="fMenu"><div class="folha menu">
+  <h2><span id="mTit">Lançamento</span><button type="button" data-fechar>✕</button></h2>
+  <button type="button" id="mVer">🖼️ Ver foto</button>
+  <button type="button" id="mFoto">📷 Pôr / trocar foto</button>
+  <button type="button" class="del" id="mDel">🗑️ Apagar</button>
+</div></div>
+<input type="file" id="mArq" accept="image/*" hidden>
+
+<!-- confirmar apagar -->
+<div class="fundo" id="fDel"><div class="folha">
+  <h2><span>Apagar lançamento?</span><button type="button" data-fechar>✕</button></h2>
+  <p id="dTxt" style="margin:0 0 6px;color:var(--text2)"></p>
+  <button class="salvar" id="dSim" type="button" style="background:var(--danger);box-shadow:none">Apagar</button>
+</div></div>
+
+<!-- ver foto -->
+<div class="fundo" id="fVer"><div class="folha ver">
+  <h2><span id="vTit">Comprovante</span><button type="button" data-fechar>✕</button></h2>
+  <div id="vImg" class="carreg">Carregando…</div>
+</div></div>
+
+<div class="toast" id="toast"></div>
+<div id="relatorio"></div>
+
+<script>
+(function () {
+  'use strict';
+  var URL_FN = 'https://southamerica-east1-rastreando-assinaturas.cloudfunctions.net/cancelamento';
+  var CATS = { combustivel: '⛽ Combustível', alimentacao: '🍽️ Alimentação', hospedagem: '🏨 Hospedagem', pedagio: '🛣️ Pedágio', estacionamento: '🅿️ Estacionamento', transporte: '🚕 Transporte', outros: '🧾 Outros', adiantamento: '💵 Adiantamento recebido' };
+  var $ = function (id) { return document.getElementById(id); };
+  var S = { k: '', itens: [], resumo: null, cat: 'combustivel', img: null, sel: null, fotos: {} };
+
+  /* chave: vem no link (#k=...) e fica guardada neste aparelho */
+  var m = /[#&]k=([a-f0-9]{20,64})/.exec(location.hash || '');
+  if (m) { S.k = m[1]; try { localStorage.setItem('despK', S.k); } catch (e) {} }
+  else { try { S.k = localStorage.getItem('despK') || ''; } catch (e) {} }
+
+  function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+  function brl(v) { return Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }); }
+  function hoje() { return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date()); }
+  var SEM = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
+  function diaTxt(iso) { var p = iso.split('-'), d = new Date(+p[0], +p[1] - 1, +p[2]); return (iso === hoje() ? 'Hoje' : SEM[d.getDay()]) + ', ' + p[2] + '/' + p[1]; }
+  function toast(t) { var x = $('toast'); x.textContent = t; x.classList.add('on'); clearTimeout(toast._t); toast._t = setTimeout(function () { x.classList.remove('on'); }, 2400); }
+  function abrir(id) { $(id).classList.add('on'); }
+  function fechar(id) { (id ? [$(id)] : document.querySelectorAll('.fundo')).forEach(function (f) { f.classList.remove('on'); }); }
+  document.querySelectorAll('.fundo').forEach(function (f) {
+    f.addEventListener('click', function (e) { if (e.target === f || e.target.hasAttribute('data-fechar')) f.classList.remove('on'); });
+  });
+
+  async function chamar(acao, dados) {
+    var corpo = { acao: acao, k: S.k }; for (var x in dados) corpo[x] = dados[x];
+    var r, j = {};
+    try { r = await fetch(URL_FN, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ data: corpo }) }); }
+    catch (e) { throw new Error('Sem internet agora. Tente de novo.'); }
+    try { j = await r.json(); } catch (e) {}
+    if (!r.ok || j.error) throw new Error((j.error && j.error.message && j.error.status !== 'INTERNAL') ? j.error.message : 'Não consegui agora. Tente de novo.');
+    return j.result;
+  }
+
+  /* ---------- lista ---------- */
+  async function carregar() {
+    if (!S.k) { $('lista').innerHTML = '<div class="vazio">Abra pelo link que o robô mandou.</div>'; $('fab').style.display = 'none'; return; }
+    try { var r = await chamar('desp_listar', {}); S.itens = r.itens || []; S.resumo = r.resumo; desenhar(); }
+    catch (e) { $('lista').innerHTML = '<div class="vazio">' + esc(e.message) + '</div>'; }
+  }
+  function desenhar() {
+    var r = S.resumo || { total: 0, adiantamentos: 0, aReceber: 0, porCategoria: {} };
+    $('rTotal').textContent = brl(r.total); $('rAdi').textContent = brl(r.adiantamentos); $('rRec').textContent = brl(r.aReceber);
+    $('cats').innerHTML = Object.keys(r.porCategoria || {}).sort(function (a, b) { return r.porCategoria[b] - r.porCategoria[a]; })
+      .map(function (k) { return '<span>' + CATS[k] + ' · ' + brl(r.porCategoria[k]) + '</span>'; }).join('');
+    if (!S.itens.length) { $('lista').innerHTML = '<div class="vazio">Nenhum gasto ainda.<br>Toque em <b>＋ Novo gasto</b>.</div>'; return; }
+    var dias = {};
+    S.itens.forEach(function (i) { (dias[i.data] = dias[i.data] || []).push(i); });
+    $('lista').innerHTML = Object.keys(dias).sort().reverse().map(function (d) {
+      var tot = dias[d].filter(function (i) { return i.categoria !== 'adiantamento'; }).reduce(function (t, i) { return t + i.valor; }, 0);
+      return '<div class="dia"><h3>' + diaTxt(d) + '<small>' + brl(tot) + '</small></h3>' + dias[d].map(function (i) {
+        var ic = String(CATS[i.categoria] || '🧾').split(' ')[0];
+        return '<div class="item' + (i.categoria === 'adiantamento' ? ' adi' : '') + '" data-id="' + esc(i.id) + '">' +
+          '<button type="button" class="ic" data-foto="' + esc(i.id) + '">' + (S.fotos[i.id] ? '<img src="' + S.fotos[i.id] + '" alt="">' : ic) + '</button>' +
+          '<div class="tx"><b>' + esc(i.descricao || String(CATS[i.categoria] || '').replace(/^\S+\s/, '')) + '</b>' +
+          (i.foto ? '<small>📷 com comprovante' + (i.origem === 'telegram' ? ' · pelo robô' : '') + '</small>' : '<small class="sf">sem foto' + (i.origem === 'telegram' ? ' · pelo robô' : '') + '</small>') + '</div>' +
+          '<div class="v">' + (i.categoria === 'adiantamento' ? '+ ' : '') + brl(i.valor) + '</div><button type="button" class="mais" data-menu="' + esc(i.id) + '">⋮</button></div>';
+      }).join('') + '</div>';
+    }).join('');
+    carregarMiniaturas();
+  }
+  /* miniaturas: baixa as fotos aos poucos, só as que faltam */
+  async function carregarMiniaturas() {
+    for (var i = 0; i < S.itens.length; i++) {
+      var it = S.itens[i]; if (!it.foto || S.fotos[it.id]) continue;
+      try { var r = await chamar('desp_foto', { id: it.id }); if (r.img) { S.fotos[it.id] = r.img; var b = document.querySelector('[data-foto="' + it.id + '"]'); if (b) b.innerHTML = '<img src="' + r.img + '" alt="">'; } } catch (e) { break; }
+    }
+  }
+  $('lista').addEventListener('click', function (e) {
+    var f = e.target.closest('[data-foto]'), mn = e.target.closest('[data-menu]');
+    var id = (f && f.getAttribute('data-foto')) || (mn && mn.getAttribute('data-menu')); if (!id) return;
+    var it = S.itens.find(function (x) { return x.id === id; }); if (!it) return;
+    S.sel = it;
+    if (f && it.foto) return verFoto(it);
+    $('mTit').textContent = brl(it.valor) + ' · ' + diaTxt(it.data);
+    $('mVer').style.display = it.foto ? '' : 'none';
+    $('mFoto').textContent = it.foto ? '📷 Trocar foto' : '📷 Pôr foto';
+    abrir('fMenu');
+  });
+  async function verFoto(it) {
+    $('vTit').textContent = brl(it.valor) + ' · ' + diaTxt(it.data);
+    $('vImg').className = 'carreg'; $('vImg').textContent = 'Carregando…'; abrir('fVer');
+    try {
+      var img = S.fotos[it.id] || (await chamar('desp_foto', { id: it.id })).img;
+      if (img) { S.fotos[it.id] = img; $('vImg').className = ''; $('vImg').innerHTML = '<img src="' + img + '" alt="Comprovante">'; }
+      else $('vImg').textContent = 'Sem foto.';
+    } catch (e) { $('vImg').textContent = e.message; }
+  }
+  $('mVer').onclick = function () { fechar('fMenu'); verFoto(S.sel); };
+  $('mFoto').onclick = function () { $('mArq').value = ''; $('mArq').click(); };
+  $('mArq').onchange = async function () {
+    var f = this.files && this.files[0]; if (!f) return;
+    fechar('fMenu'); toast('Enviando a foto…');
+    try { var img = await reduzir(f); await chamar('desp_trocar_foto', { id: S.sel.id, img: img }); S.fotos[S.sel.id] = img; toast('Foto salva ✓'); await carregar(); }
+    catch (e) { toast(e.message || 'Não consegui ler a foto.'); }
+  };
+  $('mDel').onclick = function () { fechar('fMenu'); $('dTxt').textContent = brl(S.sel.valor) + ' · ' + (CATS[S.sel.categoria] || '') + ' · ' + diaTxt(S.sel.data); abrir('fDel'); };
+  $('dSim').onclick = async function () {
+    this.disabled = true;
+    try { await chamar('desp_apagar', { id: S.sel.id }); delete S.fotos[S.sel.id]; fechar('fDel'); toast('Apagado'); await carregar(); }
+    catch (e) { toast(e.message); } this.disabled = false;
+  };
+
+  /* ---------- novo gasto ---------- */
+  $('nCats').innerHTML = Object.keys(CATS).map(function (k) { return '<button type="button" data-c="' + k + '">' + CATS[k] + '</button>'; }).join('');
+  function marcarCat() { document.querySelectorAll('#nCats button').forEach(function (b) { b.classList.toggle('on', b.getAttribute('data-c') === S.cat); }); }
+  $('nCats').addEventListener('click', function (e) { var b = e.target.closest('button'); if (!b) return; S.cat = b.getAttribute('data-c'); marcarCat(); });
+  function fotoVazia() { $('nFoto').innerHTML = '<span class="big">📷</span><span>Foto do recibo ou print</span><small style="font-weight:500">Câmera ou galeria</small>'; }
+  $('fab').onclick = function () {
+    S.img = null; fotoVazia(); $('nValor').value = ''; $('nDesc').value = ''; $('nData').value = hoje(); $('nErro').textContent = '';
+    S.cat = 'combustivel'; marcarCat(); $('nSalvar').disabled = false; $('nSalvar').textContent = 'Salvar'; abrir('fNovo');
+  };
+  $('nFoto').addEventListener('click', function (e) {
+    if (e.target.classList.contains('tira')) { S.img = null; fotoVazia(); return; }
+    $('nArq').value = ''; $('nArq').click();
+  });
+  $('nArq').onchange = async function () {
+    var f = this.files && this.files[0]; if (!f) return;
+    $('nFoto').innerHTML = '<span>Preparando a foto…</span>';
+    try { S.img = await reduzir(f); $('nFoto').innerHTML = '<img src="' + S.img + '" alt=""><button type="button" class="tira">Tirar</button>'; }
+    catch (e) { S.img = null; fotoVazia(); $('nErro').textContent = 'Não consegui ler essa foto.'; }
+  };
+  $('nValor').addEventListener('input', function () {
+    var d = this.value.replace(/\D/g, '').replace(/^0+/, '').slice(0, 8);
+    if (!d) { this.value = ''; return; }
+    while (d.length < 3) d = '0' + d;
+    this.value = Number(d.slice(0, -2)).toLocaleString('pt-BR') + ',' + d.slice(-2);
+  });
+  $('nSalvar').onclick = async function () {
+    var v = Number(String($('nValor').value).replace(/\./g, '').replace(',', '.'));
+    if (!(v > 0)) { $('nErro').textContent = 'Digite o valor.'; $('nValor').focus(); return; }
+    this.disabled = true; this.textContent = 'Salvando…'; $('nErro').textContent = '';
+    try {
+      var r = await chamar('desp_lancar', { valor: v, categoria: S.cat, descricao: $('nDesc').value, data: $('nData').value || hoje(), img: S.img || '' });
+      if (S.img && r.item) S.fotos[r.item.id] = S.img;
+      fechar('fNovo'); toast('Gasto salvo ✓' + (S.img ? '' : ' (sem foto)')); await carregar();
+    } catch (e) { $('nErro').textContent = e.message; this.disabled = false; this.textContent = 'Salvar'; }
+  };
+
+  /* foto: reduz para no máximo 1400 px e JPEG leve (cabe no servidor e carrega rápido) */
+  function reduzir(arq) {
+    return new Promise(function (res, rej) {
+      var url = URL.createObjectURL(arq), im = new Image();
+      im.onload = function () {
+        try {
+          var max = 1400, w = im.naturalWidth, h = im.naturalHeight, f = Math.min(1, max / Math.max(w, h));
+          var c = document.createElement('canvas'); c.width = Math.round(w * f); c.height = Math.round(h * f);
+          var g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); g.drawImage(im, 0, 0, c.width, c.height);
+          var q = 0.72, out = c.toDataURL('image/jpeg', q);
+          while (out.length > 900000 && q > 0.35) { q -= 0.1; out = c.toDataURL('image/jpeg', q); }
+          URL.revokeObjectURL(url); res(out);
+        } catch (e) { rej(e); }
+      };
+      im.onerror = function () { URL.revokeObjectURL(url); rej(new Error('foto')); };
+      im.src = url;
+    });
+  }
+
+  /* ---------- resumo para o WhatsApp ---------- */
+  function textoResumo() {
+    var r = S.resumo || {}, linhas = ['*Despesas da operação*', ''];
+    Object.keys(r.porDia || {}).sort().forEach(function (d) { linhas.push(diaTxt(d).replace('Hoje', SEM[new Date().getDay()]) + ': ' + brl(r.porDia[d])); });
+    linhas.push('');
+    Object.keys(r.porCategoria || {}).forEach(function (k) { linhas.push(CATS[k] + ': ' + brl(r.porCategoria[k])); });
+    linhas.push('', '*Total gasto: ' + brl(r.total) + '*');
+    if (r.adiantamentos) linhas.push('Adiantado: ' + brl(r.adiantamentos), '*A receber: ' + brl(r.aReceber) + '*');
+    return linhas.join('\n');
+  }
+  $('btnCopiar').onclick = function () {
+    var t = textoResumo();
+    var ok = function () { toast('Resumo copiado ✓ Cole no WhatsApp'); };
+    if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(t).then(ok, function () { velho(t); ok(); }); else { velho(t); ok(); }
+  };
+  function velho(t) { var ta = document.createElement('textarea'); ta.value = t; ta.style.position = 'fixed'; ta.style.opacity = '0'; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); } catch (e) {} ta.remove(); }
+
+  /* ---------- relatório com todas as fotos (imprimir / salvar em PDF) ---------- */
+  $('btnRel').onclick = async function () {
+    var b = this; b.disabled = true; b.textContent = 'Juntando fotos…';
+    try {
+      for (var i = 0; i < S.itens.length; i++) { var it = S.itens[i]; if (it.foto && !S.fotos[it.id]) { var r = await chamar('desp_foto', { id: it.id }); if (r.img) S.fotos[it.id] = r.img; } }
+      var R = S.resumo || {}, ord = S.itens.slice().sort(function (a, b) { return a.data < b.data ? -1 : a.data > b.data ? 1 : a.em - b.em; });
+      $('relatorio').innerHTML = '<h1>Despesas da operação</h1><div>Gerado em ' + new Date().toLocaleString('pt-BR') + '</div>' +
+        '<table><tr><th>Dia</th><th>Tipo</th><th>O quê</th><th>Valor</th></tr>' + ord.map(function (i) {
+          return '<tr><td>' + i.data.split('-').reverse().join('/') + '</td><td>' + esc(CATS[i.categoria]) + '</td><td>' + esc(i.descricao) + '</td><td>' + (i.categoria === 'adiantamento' ? '− ' : '') + brl(i.valor) + '</td></tr>';
+        }).join('') + '</table>' +
+        '<p><b>Total gasto: ' + brl(R.total) + '</b>' + (R.adiantamentos ? ' · Adiantado: ' + brl(R.adiantamentos) + ' · <b>A receber: ' + brl(R.aReceber) + '</b>' : '') + '</p>' +
+        '<h3>Comprovantes</h3><div class="fts">' + ord.filter(function (i) { return S.fotos[i.id]; }).map(function (i) {
+          return '<div class="ft"><img src="' + S.fotos[i.id] + '"><div>' + i.data.split('-').reverse().join('/') + ' · ' + brl(i.valor) + (i.descricao ? ' · ' + esc(i.descricao) : '') + '</div></div>';
+        }).join('') + '</div>';
+      setTimeout(function () { window.print(); }, 300);
+    } catch (e) { toast(e.message); }
+    b.disabled = false; b.textContent = '📄 Relatório';
+  };
+
+  carregar();
+})();
+</script>
+</body>
+</html>
