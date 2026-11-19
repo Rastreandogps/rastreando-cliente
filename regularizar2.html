@@ -205,8 +205,7 @@ footer.some{display:none}
     return '<h4>Seus boletos</h4>' + r.faturas.map(function (f) {
       var on = l.indexOf(f) >= 0, trava = f.vencida || !S.sel;
       return '<div class="fat sel' + (on ? ' on' : '') + (trava ? ' trava' : '') + '" data-k="' + esc(f.k || '') + '">' + CK +
-        '<div class="fx"><div class="d">' + (f.vencida ? 'Venceu ' : 'Vence ') + dataBR(f.vencimento) +
-        '<span class="tg ' + (f.vencida ? 'venc">' + f.dias + (f.dias === 1 ? ' dia' : ' dias') : 'prox">vence logo') + '</span></div>' +
+        '<div class="fx"><div class="d">' + dataBR(f.vencimento) + '</div>' + /* 19/11/2026 (dono): só a data, sem "venceu", "vence logo" nem dias */
         (f.vencida && Number(f.atualizado) > Number(f.valor) ? '<div class="q">' + brl(f.valor) + ' + multa e juros</div>' : '') + '</div>' +
         '<div class="v">' + brl(f.atualizado) + '</div></div>';
     }).join('') +
