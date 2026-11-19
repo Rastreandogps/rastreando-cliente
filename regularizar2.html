@@ -178,7 +178,19 @@ footer.some{display:none}
     if (d.length <= 11) return d.replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d{1,2})$/, '$1-$2');
     return d.replace(/^(\d{2})(\d)/, '$1.$2').replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3').replace(/\.(\d{3})(\d)/, '.$1/$2').replace(/(\d{4})(\d)/, '$1-$2');
   }
-  $('entrada').addEventListener('input', function () { this.value = mascara(soDig(this.value).slice(0, 14)); });
+  $('entrada').addEventListener('input', function () { if (this.value.trim().charAt(0) === '#') return; this.value = mascara(soDig(this.value).slice(0, 14)); });
+
+  /* 19/11/2026 (dono): MODO TESTE, sem cobrar nada. No lugar do CPF digite:
+     #123 = cliente com acesso (mostra login) · #124 = cliente encerrado · #125 = cliente da NOB/Márcio.
+     PIX de mentira: ao tocar em "Copiar código PIX", em 2 segundos dá como pago. Nada vai ao servidor. */
+  var SIM = { '#123': { login: 'cliente.teste', link: 'https://gps.rastreandogpsbr.com.br/instalar.html' }, '#124': { encerrado: true }, '#125': null };
+  function simConsulta() {
+    var h = new Date(), d = function (n) { var x = new Date(h.getTime() + n * 864e5); return x.toISOString().slice(0, 10); };
+    return { elegivel: true, sessao: 'teste', cliente: { nome: 'Cliente Teste', completo: 'Cliente de Teste da Silva' }, faturas: [
+      { k: 't1', vencimento: d(-34), valor: 79.9, dias: 34, atualizado: 84.36, vencida: true },
+      { k: 't2', vencimento: d(-4), valor: 79.9, dias: 4, atualizado: 80.25, vencida: true },
+      { k: 't3', vencimento: d(6), valor: 79.9, dias: 0, atualizado: 79.9, vencida: false }] };
+  }
 
   /* ---------- 1. CPF ---------- */
   var esperandoCpf = null;
@@ -188,7 +200,13 @@ footer.some{display:none}
   async function etapaCpf(primeira) {
     if (primeira) { await bot('Oi! 👋 Aqui é da <b>Rastreando GPS</b>.'); await bot('Vamos deixar sua mensalidade em dia?\nQual é o seu <b>CPF</b>?'); }
     while (true) {
-      var v = await pedirCpf(), d = soDig(v);
+      var v = await pedirCpf(), d = soDig(v), vt = String(v || '').trim();
+      if (Object.prototype.hasOwnProperty.call(SIM, vt)) {
+        esperandoCpf = null; rodape(false); $('entrada').value = ''; eu(vt); S.sim = vt;
+        add(div('msg bot', '🧪 <b>Modo teste</b>: nada é cobrado.'));
+        var ts = await carregar('Aguarde uns segundos, estou buscando seus dados… 🔎'); await espera(1500); ts.remove();
+        return simConsulta();
+      }
       var ok = d.length === 11 ? cpfValido(d) : d.length === 14 ? cnpjValido(d) : false;
       if (!ok) { await bot('Esse CPF não confere. Digita de novo?', 'erro'); continue; }
       esperandoCpf = null; rodape(false); $('entrada').value = ''; eu(mascara(d));
@@ -267,7 +285,8 @@ footer.some{display:none}
     var dados = { sessao: S.sessao, acesso: true };
     if (S.sel) dados.sel = Object.keys(S.sel).filter(function (k) { return S.sel[k]; });
     var p;
-    try { p = await chamar('divida_pix', dados); }
+    if (S.sim) { await espera(1200); p = { valor: totalSel(), copiaCola: '00020126TESTE-PIX-DE-MENTIRA-NADA-E-COBRADO5204000053039865802BR', imagem: '' }; }
+    else try { p = await chamar('divida_pix', dados); }
     catch (e) { pronto(t); await bot(esc(e.message), 'erro'); return fimErro(); }
     pronto(t);
     if (p.pago) return pagou(p.acesso);
@@ -276,9 +295,10 @@ footer.some{display:none}
     var c = add(div('cartao pix', '<div class="valor">' + brl(p.valor) + '</div>' + img +
       '<div class="cc" id="cc">' + esc(p.copiaCola) + '</div><button type="button" class="copiar" id="copiar">Copiar código PIX</button>' +
       '<div class="espera" id="espera"><i></i>Esperando o pagamento…</div>'));
-    $('copiar').onclick = function () { copiar(p.copiaCola, this); };
+    $('copiar').onclick = function () { copiar(p.copiaCola, this); if (S.sim) setTimeout(function () { pagou(SIM[S.sim]); }, 2000); };
+    if (S.sim) { var q = c.querySelector('.cc'); if (q) q.insertAdjacentHTML('beforebegin', '<div style="width:200px;height:200px;margin:0 auto;border:2px dashed #C3CCDA;border-radius:12px;display:grid;place-items:center;color:#8A96AA;font-weight:600">QR de teste</div>'); }
     await bot('Cole no app do seu banco. Assim que pagar, a tela confirma sozinha.');
-    esperarPagamento();
+    if (!S.sim) esperarPagamento();
   }
   function copiar(txt, btn) {
     var rot = btn.dataset.rot || (btn.dataset.rot = btn.textContent);
