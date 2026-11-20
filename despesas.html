@@ -60,6 +60,9 @@ header .s{font-size:13.5px;opacity:.82;margin-top:3px}
 .foto{border:2px dashed #C3CCDA;border-radius:16px;min-height:130px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;color:var(--text3);font-weight:600;cursor:pointer;overflow:hidden;position:relative;background:#F8FAFC}
 .foto img{width:100%;max-height:260px;object-fit:contain;background:#000}
 .foto .big{font-size:34px}
+.foto .duas{display:flex;gap:10px;width:100%;padding:0 14px}
+.foto .esc{flex:1;border:1.5px solid var(--navy2);background:#fff;color:var(--navy2);border-radius:14px;padding:16px 8px;font:700 16px Inter,sans-serif;cursor:pointer}
+.foto .esc:first-child{background:var(--navy2);color:#fff}
 .foto .tira{position:absolute;top:8px;right:8px;border:0;background:rgba(0,0,0,.6);color:#fff;border-radius:999px;padding:6px 11px;font-weight:600;cursor:pointer}
 .campo{margin-top:14px}
 .campo label{display:block;font-size:13px;font-weight:600;color:var(--text2);margin-bottom:6px}
@@ -116,8 +119,9 @@ header .s{font-size:13.5px;opacity:.82;margin-top:3px}
 <!-- novo gasto -->
 <div class="fundo" id="fNovo"><div class="folha">
   <h2><span id="nTit">Novo gasto</span><button type="button" data-fechar>✕</button></h2>
-  <div class="foto" id="nFoto"><span class="big">📷</span><span>Foto do recibo ou print</span><small style="font-weight:500">Câmera ou galeria</small></div>
+  <div class="foto" id="nFoto"></div>
   <input type="file" id="nArq" accept="image/*" hidden>
+  <input type="file" id="nCam" accept="image/*" capture="environment" hidden><!-- 19/11 (dono): botão da câmera separado (o Android só abria a galeria) -->
   <div class="campo"><label>Valor</label><div class="valor"><span>R$</span><input id="nValor" inputmode="decimal" placeholder="0,00" autocomplete="off"></div></div>
   <div class="campo"><label>Tipo</label><div class="chips" id="nCats"></div></div>
   <div class="campo"><label>O que foi (opcional)</label><input class="inp" id="nDesc" maxlength="120" placeholder="Ex.: Posto na BR-040"></div>
@@ -130,10 +134,12 @@ header .s{font-size:13.5px;opacity:.82;margin-top:3px}
 <div class="fundo" id="fMenu"><div class="folha menu">
   <h2><span id="mTit">Lançamento</span><button type="button" data-fechar>✕</button></h2>
   <button type="button" id="mVer">🖼️ Ver foto</button>
-  <button type="button" id="mFoto">📷 Pôr / trocar foto</button>
+  <button type="button" id="mFoto">📷 Tirar foto agora</button>
+  <button type="button" id="mGal">🖼️ Escolher da galeria</button>
   <button type="button" class="del" id="mDel">🗑️ Apagar</button>
 </div></div>
 <input type="file" id="mArq" accept="image/*" hidden>
+<input type="file" id="mCam" accept="image/*" capture="environment" hidden>
 
 <!-- confirmar apagar -->
 <div class="fundo" id="fDel"><div class="folha">
@@ -228,7 +234,8 @@ header .s{font-size:13.5px;opacity:.82;margin-top:3px}
     if (f && it.foto) return verFoto(it);
     $('mTit').textContent = brl(it.valor) + ' · ' + diaTxt(it.data);
     $('mVer').style.display = it.foto ? '' : 'none';
-    $('mFoto').textContent = it.foto ? '📷 Trocar foto' : '📷 Pôr foto';
+    $('mFoto').textContent = it.foto ? '📷 Trocar: tirar foto agora' : '📷 Tirar foto agora';
+    $('mGal').textContent = it.foto ? '🖼️ Trocar: escolher da galeria' : '🖼️ Escolher da galeria';
     abrir('fMenu');
   });
   async function verFoto(it) {
@@ -241,7 +248,9 @@ header .s{font-size:13.5px;opacity:.82;margin-top:3px}
     } catch (e) { $('vImg').textContent = e.message; }
   }
   $('mVer').onclick = function () { fechar('fMenu'); verFoto(S.sel); };
-  $('mFoto').onclick = function () { $('mArq').value = ''; $('mArq').click(); };
+  $('mFoto').onclick = function () { $('mCam').value = ''; $('mCam').click(); };
+  $('mGal').onclick = function () { $('mArq').value = ''; $('mArq').click(); };
+  $('mCam').onchange = function () { $('mArq').onchange.call(this); };
   $('mArq').onchange = async function () {
     var f = this.files && this.files[0]; if (!f) return;
     fechar('fMenu'); toast('Enviando a foto…');
@@ -259,15 +268,17 @@ header .s{font-size:13.5px;opacity:.82;margin-top:3px}
   $('nCats').innerHTML = Object.keys(CATS).map(function (k) { return '<button type="button" data-c="' + k + '">' + CATS[k] + '</button>'; }).join('');
   function marcarCat() { document.querySelectorAll('#nCats button').forEach(function (b) { b.classList.toggle('on', b.getAttribute('data-c') === S.cat); }); }
   $('nCats').addEventListener('click', function (e) { var b = e.target.closest('button'); if (!b) return; S.cat = b.getAttribute('data-c'); marcarCat(); });
-  function fotoVazia() { $('nFoto').innerHTML = '<span class="big">📷</span><span>Foto do recibo ou print</span><small style="font-weight:500">Câmera ou galeria</small>'; }
+  function fotoVazia() { $('nFoto').innerHTML = '<span style="margin-bottom:4px">Foto do recibo ou print</span><div class="duas"><button type="button" class="esc" data-cam="1">📷 Câmera</button><button type="button" class="esc" data-gal="1">🖼️ Galeria</button></div>'; }
   $('fab').onclick = function () {
     S.img = null; fotoVazia(); $('nValor').value = ''; $('nDesc').value = ''; $('nData').value = hoje(); $('nErro').textContent = '';
     S.cat = 'combustivel'; marcarCat(); $('nSalvar').disabled = false; $('nSalvar').textContent = 'Salvar'; abrir('fNovo');
   };
   $('nFoto').addEventListener('click', function (e) {
     if (e.target.classList.contains('tira')) { S.img = null; fotoVazia(); return; }
-    $('nArq').value = ''; $('nArq').click();
+    var alvo = e.target.closest('[data-cam]') ? 'nCam' : 'nArq';
+    $(alvo).value = ''; $(alvo).click();
   });
+  $('nCam').onchange = function () { $('nArq').onchange.call(this); };
   $('nArq').onchange = async function () {
     var f = this.files && this.files[0]; if (!f) return;
     $('nFoto').innerHTML = '<span>Preparando a foto…</span>';
