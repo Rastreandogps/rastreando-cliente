@@ -1,0 +1,14 @@
+{
+  "name": "Despesas da operação",
+  "short_name": "Despesas",
+  "start_url": "despesas.html",
+  "scope": "despesas.html",
+  "display": "standalone",
+  "background_color": "#EEF2F7",
+  "theme_color": "#1B3A6B",
+  "icons": [
+    { "src": "despesas-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "despesas-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" },
+    { "src": "despesas-icone.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}
