@@ -237,19 +237,17 @@ footer.some{display:none}
         '<div class="v">' + brl(f.atualizado) + '</div></div>';
     }).join('') +
       '<div class="total"><div>Total' + (l.length > 1 ? '<small>' + l.length + ' boletos num PIX só</small>' : '') + '</div><div>' + brl(totalSel()) + '</div></div>' +
-      '<button type="button" class="gerar" id="btnGerar">Gerar PIX</button>' + htmlPdfs(l);
+      '<button type="button" class="gerar" id="btnGerar">Gerar PIX</button>' + htmlPdfs();
   }
   /* 19/11/2026 (dono): PDF do boleto (empresas guardam o boleto nas planilhas/arquivos) */
-  function htmlPdfs(l) {
-    var c = l.filter(function (f) { return /^https:\/\//.test(f.pdf || ''); });
-    if (!c.length) return '';
-    if (c.length === 1) return '<div class="pdfs"><a href="' + esc(c[0].pdf) + '" target="_blank" rel="noopener">📄 PDF</a></div>';
-    return '<div class="pdfs"><button type="button" id="btnPdf">📄 PDF</button></div>'; /* 19/11/2026 (dono): 2+ boletos = escolhe num quadro à parte */
+  function htmlPdfs() { /* 20/11/2026 (dono): um botão "Boleto PDF" que sempre abre o quadro com os boletos disponíveis */
+    var c = S.r.faturas.filter(function (f) { return /^https:\/\//.test(f.pdf || ''); });
+    return c.length ? '<div class="pdfs"><button type="button" id="btnPdf">📄 Boleto PDF</button></div>' : '';
   }
   function abrirPdfs() {
-    var c = marcadas().filter(function (f) { return /^https:\/\//.test(f.pdf || ''); });
+    var c = S.r.faturas.filter(function (f) { return /^https:\/\//.test(f.pdf || ''); });
     var fundo = div('qd-fundo');
-    fundo.innerHTML = '<div class="qd"><h3>Qual boleto?</h3><p class="sub">Toque para abrir o PDF.</p>' + c.map(function (f) {
+    fundo.innerHTML = '<div class="qd"><h3>Boleto PDF</h3><p class="sub">Toque no boleto para abrir o PDF.</p>' + c.map(function (f) {
       return '<a class="qpdf" href="' + esc(f.pdf) + '" target="_blank" rel="noopener"><span>📄 ' + dataBR(f.vencimento) + '</span><b>' + brl(f.valor) + '</b></a>';
     }).join('') + '<button type="button" class="qfechar">Fechar</button></div>';
     fundo.addEventListener('click', function (ev) { if (ev.target === fundo || ev.target.classList.contains('qfechar')) fundo.remove(); });
