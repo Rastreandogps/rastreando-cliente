@@ -102,7 +102,7 @@ footer.some{display:none}
   <div><div class="t">Rastreando GPS</div><div class="s"><i></i>Regularize sua mensalidade</div></div>
 </header>
 <main id="chat"><div class="wrap" id="wrap"></div></main>
-<footer id="rodape" class="some"><form id="fEntrada" autocomplete="off"><input id="entrada" type="tel" inputmode="numeric" placeholder="Digite seu CPF" maxlength="18"><button id="enviar" aria-label="Enviar">➤</button></form></footer>
+<footer id="rodape" class="some"><form id="fEntrada" autocomplete="off"><input id="entrada" type="tel" inputmode="numeric" placeholder="Digite seu CPF ou CNPJ" maxlength="18"><button id="enviar" aria-label="Enviar">➤</button></form></footer>
 
 <script>
 (function () {
@@ -198,7 +198,7 @@ footer.some{display:none}
   function pedirCpf() { return new Promise(function (res) { esperandoCpf = res; rodape(true); }); }
 
   async function etapaCpf(primeira) {
-    if (primeira) { await bot('Oi! 👋 Aqui é da <b>Rastreando GPS</b>.'); await bot('Vamos deixar sua mensalidade em dia?\nQual é o seu <b>CPF</b>?'); }
+    if (primeira) { await bot('Oi! 👋 Aqui é da <b>Rastreando GPS</b>.'); await bot('Digite seu <b>CPF</b> ou <b>CNPJ</b>.'); /* 20/11/2026 (dono) */ }
     while (true) {
       var v = await pedirCpf(), d = soDig(v), vt = String(v || '').trim();
       if (Object.prototype.hasOwnProperty.call(SIM, vt)) {
@@ -208,7 +208,7 @@ footer.some{display:none}
         return simConsulta();
       }
       var ok = d.length === 11 ? cpfValido(d) : d.length === 14 ? cnpjValido(d) : false;
-      if (!ok) { await bot('Esse CPF não confere. Digita de novo?', 'erro'); continue; }
+      if (!ok) { await bot('Esse CPF ou CNPJ não confere. Digita de novo?', 'erro'); continue; }
       esperandoCpf = null; rodape(false); $('entrada').value = ''; eu(mascara(d));
       var t = await carregar('Aguarde uns segundos, estou buscando seus dados… 🔎');
       try { var res = await chamar('divida_consultar', { cpf: d }); await espera(400); t.remove(); return res; } // 19/11 (dono): o "aguarde" some
