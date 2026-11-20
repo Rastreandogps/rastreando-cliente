@@ -282,7 +282,7 @@ footer.some{display:none}
   /* ---------- 3. PIX ---------- */
   async function etapaPix() {
     var t = await carregar('Gerando seu PIX… ⏳');
-    var dados = { sessao: S.sessao, acesso: true };
+    var dados = { sessao: S.sessao, acesso: false };
     if (S.sel) dados.sel = Object.keys(S.sel).filter(function (k) { return S.sel[k]; });
     var p;
     if (S.sim) { await espera(1200); p = { valor: totalSel(), copiaCola: '00020126TESTE-PIX-DE-MENTIRA-NADA-E-COBRADO5204000053039865802BR', imagem: '' }; }
@@ -314,14 +314,14 @@ footer.some{display:none}
     S.poll = setInterval(async function () {
       if (S.pago || document.hidden) return;
       if (++n > 50) { clearInterval(S.poll); var e = $('espera'); if (e) e.innerHTML = ''; mostrarJaPaguei(); return; }
-      try { var d = await chamar('divida_status', { sessao: S.sessao, acesso: true }); if (d.pago) pagou(d.acesso); }
+      try { var d = await chamar('divida_status', { sessao: S.sessao, acesso: false }); if (d.pago) pagou(d.acesso); }
       catch (e) { if (e.status === 'RESOURCE_EXHAUSTED' || e.status === 'DEADLINE_EXCEEDED') { clearInterval(S.poll); mostrarJaPaguei(); } }
     }, 6000);
   }
   async function mostrarJaPaguei() {
     var b = await botoes([{ t: 'Já paguei', v: 1, c: 'pri' }]);
     var t = add(div('msg bot digitando', '<span></span><span></span><span></span>'));
-    try { var d = await chamar('divida_status', { sessao: S.sessao, acesso: true }); t.remove(); if (d.pago) return pagou(d.acesso); }
+    try { var d = await chamar('divida_status', { sessao: S.sessao, acesso: false }); t.remove(); if (d.pago) return pagou(d.acesso); }
     catch (e) { t.remove(); }
     await bot('Ainda não chegou. Pode levar 1 minutinho.');
     mostrarJaPaguei();
@@ -333,21 +333,7 @@ footer.some{display:none}
     var e = $('espera'); if (e) e.innerHTML = '<span style="color:#008F64;font-weight:700">✓ Pago</span>';
     add(div('fim', '✅'));
     await bot('<b>Pagamento confirmado!</b> Obrigado' + (S.nome ? ', ' + esc(S.nome) : '') + '.');
-    if (acesso && acesso.login) {
-      await bot('Seu acesso ao app 👇');
-      var c = add(div('cartao acesso', '<h4>App Rastreando GPS</h4>' +
-        '<div class="l"><div><div class="k">Login</div><div class="val" id="lg">' + esc(acesso.login) + '</div></div><button type="button" class="mini" id="cpLg">Copiar</button></div>' +
-        '<div class="l"><div><div class="k">Senha</div><div style="font-size:14.5px">A mesma de sempre.<br>Nunca trocou? <b>123456</b></div></div></div>'));
-      $('cpLg').onclick = function () { copiar(acesso.login, this); };
-      var bx = add(div('botoes'));
-      bx.innerHTML = '<a class="pri" href="' + esc(acesso.link || 'https://gps.rastreandogpsbr.com.br/instalar.html') + '" target="_blank" rel="noopener">Abrir o app</a>';
-    } else if (acesso && acesso.encerrado) {
-      await bot('Seu serviço de rastreamento está encerrado.');
-      await bot('Para voltar, fale com a gente 👇');
-      var b2 = add(div('botoes')); b2.innerHTML = '<a class="wa" href="' + WA + encodeURIComponent('Oi! Paguei pelo Regularizar e quero voltar com o rastreamento.') + '" target="_blank" rel="noopener">Falar no WhatsApp</a>';
-    } else {
-      await bot('Seu rastreamento segue funcionando normalmente.');
-    }
+    /* 20/11/2026 (dono): termina aqui; não entrega mais o acesso ao app */
   }
 
   async function fimErro() {
