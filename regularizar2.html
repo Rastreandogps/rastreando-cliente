@@ -187,9 +187,9 @@ footer.some{display:none}
   function simConsulta() {
     var h = new Date(), d = function (n) { var x = new Date(h.getTime() + n * 864e5); return x.toISOString().slice(0, 10); };
     return { elegivel: true, sessao: 'teste', cliente: { nome: 'Cliente Teste', completo: 'Cliente de Teste da Silva' }, faturas: [
-      { k: 't1', vencimento: d(-34), valor: 79.9, dias: 34, atualizado: 84.36, vencida: true },
-      { k: 't2', vencimento: d(-4), valor: 79.9, dias: 4, atualizado: 80.25, vencida: true },
-      { k: 't3', vencimento: d(6), valor: 79.9, dias: 0, atualizado: 79.9, vencida: false }] };
+      { k: 't1', vencimento: d(-34), valor: 79.9, dias: 34, atualizado: 84.36, vencida: true, pdf: 'teste' },
+      { k: 't2', vencimento: d(-4), valor: 79.9, dias: 4, atualizado: 80.25, vencida: true, pdf: 'teste' },
+      { k: 't3', vencimento: d(6), valor: 79.9, dias: 0, atualizado: 79.9, vencida: false, pdf: 'teste' }] };
   }
 
   /* ---------- 1. CPF ---------- */
@@ -241,14 +241,14 @@ footer.some{display:none}
   }
   /* 19/11/2026 (dono): PDF do boleto (empresas guardam o boleto nas planilhas/arquivos) */
   function htmlPdfs() { /* 20/11/2026 (dono): um botão "Boleto PDF" que sempre abre o quadro com os boletos disponíveis */
-    var c = S.r.faturas.filter(function (f) { return /^https:\/\//.test(f.pdf || ''); });
+    var c = S.r.faturas.filter(function (f) { return /^https:\/\//.test(f.pdf || '') || (S.sim && f.pdf); });
     return c.length ? '<div class="pdfs"><button type="button" id="btnPdf">📄 Boleto PDF</button></div>' : '';
   }
   function abrirPdfs() {
-    var c = S.r.faturas.filter(function (f) { return /^https:\/\//.test(f.pdf || ''); });
+    var c = S.r.faturas.filter(function (f) { return /^https:\/\//.test(f.pdf || '') || (S.sim && f.pdf); });
     var fundo = div('qd-fundo');
-    fundo.innerHTML = '<div class="qd"><h3>Boleto PDF</h3><p class="sub">Toque no boleto para abrir o PDF.</p>' + c.map(function (f) {
-      return '<a class="qpdf" href="' + esc(f.pdf) + '" target="_blank" rel="noopener"><span>📄 ' + dataBR(f.vencimento) + '</span><b>' + brl(f.valor) + '</b></a>';
+    fundo.innerHTML = '<div class="qd"><h3>Boleto PDF</h3><p class="sub">' + (S.sim ? '🧪 Teste: com o CPF de um cliente, cada boleto abre o PDF real.' : 'Toque no boleto para abrir o PDF.') + '</p>' + c.map(function (f) {
+      return '<a class="qpdf" href="' + (S.sim ? 'javascript:void(0)' : esc(f.pdf)) + '"' + (S.sim ? '' : ' target="_blank" rel="noopener"') + '><span>📄 ' + dataBR(f.vencimento) + '</span><b>' + brl(f.valor) + '</b></a>';
     }).join('') + '<button type="button" class="qfechar">Fechar</button></div>';
     fundo.addEventListener('click', function (ev) { if (ev.target === fundo || ev.target.classList.contains('qfechar')) fundo.remove(); });
     document.body.appendChild(fundo);
