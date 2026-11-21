@@ -367,7 +367,11 @@ header .s{font-size:13.5px;opacity:.82;margin-top:3px}
         '<table><tr><th>Dia</th><th>Tipo</th><th>O quê</th><th>Valor</th></tr>' + ord.map(function (i) {
           return '<tr><td>' + i.data.split('-').reverse().join('/') + '</td><td>' + esc(CATS[i.categoria]) + '</td><td>' + esc(i.descricao) + '</td><td>' + (i.categoria === 'adiantamento' ? '− ' : '') + brl(i.valor) + '</td></tr>';
         }).join('') + '</table>' +
-        '<p><b>Total gasto: ' + brl(R.total) + '</b>' + (R.adiantamentos ? ' · Adiantado: ' + brl(R.adiantamentos) + ' · <b>A receber: ' + brl(R.aReceber) + '</b>' : '') + '</p>' +
+        '<div style="margin:16px 0 20px;padding:14px 18px;border:3px solid #111;border-radius:12px;background:#EAF7EF;-webkit-print-color-adjust:exact;print-color-adjust:exact;page-break-inside:avoid">' +
+          '<div style="font-size:13px;font-weight:700;letter-spacing:1px;text-transform:uppercase">' + (R.adiantamentos ? 'Total a receber' : 'Total gasto') + '</div>' +
+          '<div style="font-size:34px;font-weight:800;line-height:1.15">' + brl(R.adiantamentos ? R.aReceber : R.total) + '</div>' +
+          (R.adiantamentos ? '<div style="font-size:14px;margin-top:4px">Total gasto: <b>' + brl(R.total) + '</b> · Já adiantado: <b>' + brl(R.adiantamentos) + '</b></div>' : '') +
+        '</div>' +
         '<h3>Comprovantes</h3><div class="fts">' + ord.filter(function (i) { return S.fotos[i.id]; }).map(function (i) {
           return '<div class="ft"><img src="' + S.fotos[i.id] + '"><div>' + i.data.split('-').reverse().join('/') + ' · ' + brl(i.valor) + (i.descricao ? ' · ' + esc(i.descricao) : '') + '</div></div>';
         }).join('') + '</div>';
